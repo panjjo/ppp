@@ -1,0 +1,6 @@
+alipay:
+  status: on
+  appid: 2017034555555555
+  certpath: ./cert/alipay
+  url: https://openapi.alipay.com/gateway.do
+  serviceid: 2088088888888888
