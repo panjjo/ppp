@@ -1,8 +1,11 @@
 package ppp
 
 import (
+	"fmt"
 	"strconv"
 	"time"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -64,7 +67,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *PayResult) error {
 		resp.Code = AuthErr
 		return nil
 	}
-	sysParams["app_auth_token"] = user.Token
+	/*sysParams["app_auth_token"] = user.Token*/
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
 	requestParams := aliPayUrl + "?" + httpBuildQuery(sysParams)
@@ -335,13 +338,14 @@ func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	user := getUser(request.UserId, "alipay")
-	if user.UserId == "" {
-		resp.Code = AuthErr
-		return nil
-	}
+	var user User
 	params := map[string]interface{}{}
 	if request.Type == "refresh" {
+		user = getUser(request.UserId, "alipay")
+		if user.UserId == "" {
+			resp.Code = AuthErr
+			return nil
+		}
 		params["grant_type"] = "refresh_token"
 		params["refresh_token"] = user.ReToken
 	} else {
@@ -376,13 +380,22 @@ func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
 			}
 		} else {
 			//成功返回
-			//TODO:更新用户授权
 			tmpresult := result.(map[string]interface{})
+			if user.UserId == "" {
+				user = getUser(tmpresult["user_id"].(string), "alipay")
+			}
 			user.Token = tmpresult["app_auth_token"].(string)
 			user.ReToken = tmpresult["app_refresh_token"].(string)
-			exin, _ := strconv.ParseInt(tmpresult["expires_in"].(string), 10, 64)
-			user.ExAt = request.r.time + exin
+			user.ExAt = request.r.time + int64(tmpresult["expires_in"].(float64))
 			resp.User = user
+			//保存用户授权
+			if user.UserId != "" {
+				updateUser(user.UserId, user.Type, bson.M{"$set": user})
+			} else {
+				user.UserId = tmpresult["user_id"].(string)
+				user.Type = "alipay"
+				saveUser(user)
+			}
 			return nil
 		}
 	}
@@ -390,12 +403,14 @@ func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
 }
 
 func (A *AliPay) request(url string, okey string) (interface{}, int, error) {
+	fmt.Println(url)
 	body, err := getRequest(url)
 	if err != nil {
 		//网络发起请求失败
 		//需重试
 		return nil, -1, err
 	}
+	fmt.Println(string(body))
 	result := map[string]interface{}{}
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, 0, err

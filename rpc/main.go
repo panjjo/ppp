@@ -9,6 +9,7 @@ import (
 
 	config "github.com/panjjo/go-config"
 	"github.com/panjjo/ppp"
+	"github.com/panjjo/ppp/pool"
 )
 
 var configPath string
@@ -20,8 +21,11 @@ func main() {
 	if err != nil {
 		return
 	}
+
 	user := new(ppp.Account)
 	rpc.Register(user)
+
+	//alipay
 	config.Mod = "alipay"
 	if ok, err := config.GetBool("status"); ok {
 		initAliPay()
@@ -31,6 +35,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	//db
+	config.Mod = "database"
+	ppp.DBPool = pool.GetPool(&pool.Config{
+		Addr:      config.GetStringDefault("host", ""),
+		Port:      config.GetIntDefault("port", 0),
+		DB:        config.GetStringDefault("db", "ppp"),
+		MaxActive: config.GetIntDefault("max", 100),
+	})
+
 	rpc.HandleHTTP()
 	l, e := net.Listen("tcp", ":1234")
 	if e != nil {
@@ -38,6 +51,7 @@ func main() {
 	}
 	http.Serve(l, nil)
 }
+
 func initAliPay() {
 	ali := ppp.AliPayInit{
 		ServiceProviderId: config.GetStringDefault("serviceid", ""),

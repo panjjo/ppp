@@ -1,6 +1,11 @@
 alipay:
   status: on
-  appid: 2017034555555555
+  appid: 2016073100134933 
   certpath: ./cert/alipay
-  url: https://openapi.alipay.com/gateway.do
-  serviceid: 2088088888888888
+  url: https://openapi.alipaydev.com/gateway.do
+  serviceid: 2088102169330843
+database:
+  type: mongo
+  host: mongodb://shanshou:shengyun123@shanshou.mongo.host:27017
+  db: ppp
+  max: 100
