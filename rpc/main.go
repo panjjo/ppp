@@ -21,9 +21,8 @@ func main() {
 	if err != nil {
 		return
 	}
-
-	user := new(ppp.Account)
-	rpc.Register(user)
+	statement := new(ppp.Statement)
+	rpc.Register(statement)
 
 	//alipay
 	config.Mod = "alipay"

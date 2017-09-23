@@ -1,7 +1,8 @@
 package ppp
 
+import "gopkg.in/mgo.v2/bson"
+
 const (
-	Succ    = 1000 //成功
 	AuthErr = 9001 //授权错误
 
 	PayErr      = 2000 //支付失败
@@ -16,24 +17,18 @@ const (
 	RefundErrBalance = 4001 //账户余额错误
 	RefundErrAmount  = 4001 //退款金额错误
 
+	TradeQueryErr = 5000 //查询失败
+
 	TradeStatusWaitPay = 0  //未支付
 	TradeStatusClose   = -1 //取消/退款
+	TradeStatusRefund  = -2 //取消/退款
 	TradeStatusSucc    = 1  //成功结束
+
 )
 
 type rsys struct {
 	retry int
 	time  int64
-}
-
-//支付结果
-type PayResult struct {
-	Code       int    `description:"状态码"`
-	SourceData string `description:"第三方原始返回"`
-	TradeId    string
-	OutTradeId string
-	Amount     int64
-	PayTime    int64
 }
 
 //条码支付请求
@@ -58,15 +53,22 @@ type TradeRequest struct {
 
 //支付单详情
 type Trade struct {
-	TradeId    string
-	OutTradeId string
-	Status     int
+	TradeId    string //第三方ID
+	OutTradeId string //自定义ID
+	Status     int    //1:完成， -1：取消
+	Type       int    //1:入账，-1：出账
 	Amount     int64
+	Source     string // alipay,wxpay
+	PayTime    int64
+	UpTime     int64
+	Ex         map[string]string
+	Id         string // PPPID
+	Memo       string
 }
 
 //支付单返回
 type TradeResult struct {
-	Trade
+	Data       Trade
 	SourceData string
 	Code       int
 }
@@ -90,26 +92,10 @@ type RefundRequest struct {
 	r          rsys
 }
 
-//退款单
-type Refund struct {
-	TradeNo    string
-	RefundId   string
-	OutTradeId string
-	Memo       string
-	Amount     int64
-}
-
-//退款返回
-type RefundResult struct {
-	Refund
-	Code       int
-	SourceData string
-}
-
 //user
 type User struct {
 	UserId  string
-	Type    string
+	Source  string
 	Token   string
 	ExAt    int64
 	ReToken string
@@ -117,7 +103,7 @@ type User struct {
 
 //用户返回
 type UserResult struct {
-	User
+	Data       User
 	SourceData string
 	Code       int
 }
@@ -126,4 +112,26 @@ type UserResult struct {
 type Response struct {
 	SourceData string
 	Code       int
+}
+
+//列表查询
+type ListRequest struct {
+	Query       bson.M
+	Skip, Limit int
+	Sort        string
+	r           rsys
+}
+
+//总数返回
+type CountResult struct {
+	Data       int
+	Code       int
+	SourceData string
+}
+
+//对账单列表
+type TradeListResult struct {
+	Code       int
+	Data       []Trade
+	SourceData string
 }

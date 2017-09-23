@@ -4,14 +4,40 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 )
+
+var _system_id int64
+
+func init() {
+	_system_id = 0
+
+	go resetSystemId()
+}
+
+func resetSystemId() {
+	ticker := time.NewTicker(time.Second)
+	for {
+		<-ticker.C
+		atomic.StoreInt64(&_system_id, 0)
+	}
+}
+func systemid() int64 {
+	atomic.AddInt64(&_system_id, 1)
+	return _system_id
+}
+
+func randomTimeString() string {
+	return (sec2Str("20060102150405", getNowSec()) + fmt.Sprintf("%05d", systemid()))[2:]
+}
 
 /**
   获取当前时间戳
