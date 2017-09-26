@@ -17,6 +17,14 @@ var (
 	aliPayAppId             string           //应用ID
 )
 
+const (
+	FC_ALIPAY_BARCODEPAY   string = "AliPay.BarCodePay"
+	FC_ALIPAY_CANCEL       string = "AliPay.Cancel"
+	FC_ALIPAY_REFRESHTOKEN string = "AliPay.RefreshToken"
+	FC_ALIPAY_REFUND       string = "AliPay.Refund"
+	FC_ALIPAY_TRADEINFO    string = "AliPay.TradeInfo"
+)
+
 type AliPayInit struct {
 	AppId             string
 	Url               string
@@ -149,11 +157,11 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 			Id:         randomTimeString(),
 			Amount:     int64(amount * 100),
 			OutTradeId: request.OutTradeId,
-			Source:     "alipay",
+			Source:     PAYTYPE_ALIPAY,
 			PayTime:    request.r.time,
 			UpTime:     request.r.time,
 			Type:       1,
-			Status:     1,
+			Status:     TradeStatusSucc,
 			TradeId:    tmpresult["trade_no"].(string),
 		}
 		saveTrade(resp.Data)
@@ -218,12 +226,12 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 				Id:         randomTimeString(),
 				Amount:     int64(amount * 100),
 				OutTradeId: request.OutTradeId,
-				Source:     "alipay",
+				Source:     PAYTYPE_ALIPAY,
 				Type:       -1,
 				PayTime:    request.r.time,
 				UpTime:     request.r.time,
 				Memo:       request.Memo,
-				Status:     1,
+				Status:     TradeStatusSucc,
 				TradeId:    tmpresult["trade_no"].(string),
 			}
 			saveTrade(resp.Data)
