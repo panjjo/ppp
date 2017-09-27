@@ -342,7 +342,7 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 			resp.Data = Trade{
 				OutTradeId: tmpresult["out_trade_id"].(string),
 				TradeId:    tmpresult["trade_id"].(string),
-				Status:     Status(aliTradeStatusMap[tmpresult["status"].(string)]),
+				Status:     aliTradeStatusMap[tmpresult["status"].(string)],
 				Amount:     int64(amount * 100),
 			}
 			return nil
