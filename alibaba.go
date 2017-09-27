@@ -492,7 +492,7 @@ var aliErrMap = map[string]int{
 	"40004ACQ.SELLER_BALANCE_NOT_ENOUGH":  RefundErrBalance,
 	"40004ACQ.REFUND_AMT_NOT_EQUAL_TOTAL": RefundErrAmount,
 }
-var aliTradeStatusMap = map[string]int{
+var aliTradeStatusMap = map[string]Status{
 	"WAIT_BUYER_PAY": TradeStatusWaitPay,
 	"TRADE_CLOSED":   TradeStatusClose,
 	"TRADE_SUCCESS":  TradeStatusSucc,
