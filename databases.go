@@ -17,7 +17,7 @@ func saveUser(user User) error {
 }
 
 //获取用户信息
-func getUser(userid, t string) User {
+func getUser(userid string, t string) User {
 	session := DBPool.Get()
 	defer session.Close()
 	user := User{}
@@ -27,7 +27,7 @@ func getUser(userid, t string) User {
 }
 
 //更新用户信息
-func updateUser(userid, t string, update bson.M) error {
+func updateUser(userid string, t string, update bson.M) error {
 	session := DBPool.Get()
 	defer session.Close()
 	return session.DB().C("user").Update(bson.M{"userid": userid, "type": t}, update)

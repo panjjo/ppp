@@ -1,6 +1,10 @@
 package ppp
 
-import "gopkg.in/mgo.v2/bson"
+import (
+	"gopkg.in/mgo.v2/bson"
+)
+
+type Status int
 
 const (
 	AuthErr = 9001 //授权错误
@@ -23,10 +27,10 @@ const (
 
 	UserErrBalance = 6001 //账户余额错误
 
-	TradeStatusWaitPay = 0  //未支付
-	TradeStatusClose   = -1 //取消/退款
-	TradeStatusRefund  = -2 //取消/退款
-	TradeStatusSucc    = 1  //成功结束
+	TradeStatusWaitPay Status = 0  //未支付
+	TradeStatusClose          = -1 //取消/退款
+	TradeStatusRefund         = -2 //取消/退款
+	TradeStatusSucc           = 1  //成功结束
 
 )
 
@@ -64,13 +68,13 @@ type TradeRequest struct {
 type Trade struct {
 	TradeId    string //第三方ID
 	OutTradeId string //自定义ID
-	Status     int    //1:完成， -1：取消
+	Status     Status //1:完成， -1：取消
 	Type       int    //1:入账，-1：出账
 	Amount     int64
 	Source     string // alipay,wxpay
 	PayTime    int64
 	UpTime     int64
-	Ex         map[string]string
+	Ex         interface{}
 	Id         string // PPPID
 	Memo       string
 }

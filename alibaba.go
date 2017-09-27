@@ -17,6 +17,14 @@ var (
 	aliPayAppId             string           //应用ID
 )
 
+const (
+	FC_ALIPAY_BARCODEPAY   string = "AliPay.BarCodePay"
+	FC_ALIPAY_CANCEL       string = "AliPay.Cancel"
+	FC_ALIPAY_REFRESHTOKEN string = "AliPay.RefreshToken"
+	FC_ALIPAY_REFUND       string = "AliPay.Refund"
+	FC_ALIPAY_TRADEINFO    string = "AliPay.TradeInfo"
+)
+
 type AliPayInit struct {
 	AppId             string
 	Url               string
@@ -159,7 +167,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 			PayTime:    request.r.time,
 			UpTime:     request.r.time,
 			Type:       1,
-			Status:     1,
+			Status:     TradeStatusSucc,
 			TradeId:    tmpresult["trade_no"].(string),
 		}
 		saveTrade(resp.Data)
@@ -229,7 +237,7 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 				PayTime:    request.r.time,
 				UpTime:     request.r.time,
 				Memo:       request.Memo,
-				Status:     1,
+				Status:     TradeStatusSucc,
 				TradeId:    tmpresult["trade_no"].(string),
 			}
 			saveTrade(resp.Data)
@@ -490,7 +498,7 @@ var aliErrMap = map[string]int{
 	"40004ACQ.SELLER_BALANCE_NOT_ENOUGH":  UserErrBalance,
 	"40004ACQ.REFUND_AMT_NOT_EQUAL_TOTAL": RefundErrAmount,
 }
-var aliTradeStatusMap = map[string]int{
+var aliTradeStatusMap = map[string]Status{
 	"WAIT_BUYER_PAY": TradeStatusWaitPay,
 	"TRADE_CLOSED":   TradeStatusClose,
 	"TRADE_SUCCESS":  TradeStatusSucc,

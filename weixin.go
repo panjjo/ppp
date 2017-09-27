@@ -456,7 +456,7 @@ var wxErrMap = map[string]int{
 	"ORDERNOTEXIST":     TradeErrNotFound,
 	"REVERSE_EXPIRE":    RefundErrExpire,
 }
-var wxTradeStatusMap = map[string]int{
+var wxTradeStatusMap = map[string]Status{
 	"SUCCESS":    TradeStatusSucc,
 	"REFUND":     TradeStatusRefund,
 	"NOTPAY":     TradeStatusWaitPay,
