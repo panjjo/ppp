@@ -1,15 +1,8 @@
 package ppp
 
 import (
-	"encoding/gob"
-
 	"gopkg.in/mgo.v2/bson"
 )
-
-func init() {
-	gob.Register(PayType{})
-	gob.Register(Status{})
-}
 
 type Status int
 
@@ -76,7 +69,7 @@ type Trade struct {
 	Status     Status //1:完成， -1：取消
 	Type       int    //1:入账，-1：出账
 	Amount     int64
-	Source     PayPype // alipay,wxpay
+	Source     PayType // alipay,wxpay
 	PayTime    int64
 	UpTime     int64
 	Ex         interface{}

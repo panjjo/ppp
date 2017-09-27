@@ -342,7 +342,7 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 			resp.Data = Trade{
 				OutTradeId: tmpresult["out_trade_id"].(string),
 				TradeId:    tmpresult["trade_id"].(string),
-				Status:     aliTradeStatusMap[tmpresult["status"].(string)],
+				Status:     Status(aliTradeStatusMap[tmpresult["status"].(string)]),
 				Amount:     int64(amount * 100),
 			}
 			return nil
@@ -492,7 +492,7 @@ var aliErrMap = map[string]int{
 	"40004ACQ.SELLER_BALANCE_NOT_ENOUGH":  RefundErrBalance,
 	"40004ACQ.REFUND_AMT_NOT_EQUAL_TOTAL": RefundErrAmount,
 }
-var aliTradeStatusMap = map[string]int{
+var aliTradeStatusMap = map[string]Status{
 	"WAIT_BUYER_PAY": TradeStatusWaitPay,
 	"TRADE_CLOSED":   TradeStatusClose,
 	"TRADE_SUCCESS":  TradeStatusSucc,
