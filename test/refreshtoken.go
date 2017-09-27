@@ -14,10 +14,10 @@ func main() {
 		log.Fatal("dialing:", err)
 	}
 	tradePayResult := ppp.UserResult{}
-	err = client.Call("AliPay.RefreshToken", ppp.RefreshToken{
-		Type:   "code",
-		Code:   "8abf42b8bb14445aa3386b4399b46X84",
-		UserId: "userid"}, &tradePayResult)
+	err = client.Call("AliPay.Token", ppp.Token{
+		Type: "code",
+		Code: "b985e5b8c5474897b32ce7737741aX84",
+	}, &tradePayResult)
 	fmt.Println(tradePayResult)
 	if err != nil {
 		fmt.Println(err)

@@ -53,7 +53,7 @@ func (A *AliPay) UserInfo(userid string, resp *UserResult) error {
 // DOC:https://docs.open.alipay.com/api_1/alipay.trade.pay
 // 传入参数为 BarCodePayRequest格式
 // 返回参数为 TradeResult
-// userid 为收款方自定义id,应存在签约授权成功后保存的对应关系,传空表示收款到开发者支付宝帐号
+// userid 为收款方自定义id,应存在签约授权成功后保存的对应关系
 func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
@@ -81,7 +81,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 		resp.Code = AuthErr
 		return nil
 	}
-	/*sysParams["app_auth_token"] = user.Token*/
+	sysParams["app_auth_token"] = user.Token
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
 	requestParams := aliPayUrl + "?" + httpBuildQuery(sysParams)
@@ -103,7 +103,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 				//重新授权后重试
 				//重刷Token
 				tokenResp := UserResult{}
-				if A.RefreshToken(&RefreshToken{Type: "refresh_token", UserId: request.UserId, r: request.r}, &tokenResp); tokenResp.Code == 1000 {
+				if A.Token(&Token{Type: "refresh_token", r: request.r}, &tokenResp); tokenResp.Code == 1000 {
 					//重刷token后需要重新组装请求数据
 					return A.BarCodePay(request, resp)
 				} else {
@@ -191,12 +191,19 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 		resp.Code = AuthErr
 		return nil
 	}
+	trade := TradeResult{}
+	A.TradeInfo(&TradeRequest{r: request.r, UserId: request.UserId, OutTradeId: request.OutTradeId}, &trade)
+	if trade.Code != 0 {
+		resp.Code = trade.Code
+		resp.SourceData = trade.SourceData
+		return nil
+	}
 	params := map[string]interface{}{
-		"out_trade_no": request.OutTradeId,
-		"trade_no":     request.TradeId,
-		/*"out_request_no": request.RefundId,*/
-		"refund_reason": request.Memo,
-		"refund_amount": float64(request.Amount) / 100.0,
+		"out_trade_no":   request.OutTradeId,
+		"trade_no":       request.TradeId,
+		"out_request_no": request.RefundId,
+		"refund_reason":  request.Memo,
+		"refund_amount":  float64(request.Amount) / 100.0,
 	}
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.trade.refund"
@@ -239,6 +246,7 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 				Memo:       request.Memo,
 				Status:     TradeStatusSucc,
 				TradeId:    tmpresult["trade_no"].(string),
+				ParentId:   trade.Data.Id,
 			}
 			saveTrade(resp.Data)
 			return nil
@@ -346,9 +354,9 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 			tmpresult := result.(map[string]interface{})
 			amount, _ := strconv.ParseFloat(tmpresult["total_amount"].(string), 64)
 			resp.Data = Trade{
-				OutTradeId: tmpresult["out_trade_id"].(string),
-				TradeId:    tmpresult["trade_id"].(string),
-				Status:     aliTradeStatusMap[tmpresult["status"].(string)],
+				OutTradeId: tmpresult["out_trade_no"].(string),
+				TradeId:    tmpresult["trade_no"].(string),
+				Status:     aliTradeStatusMap[tmpresult["trade_status"].(string)],
 				Amount:     int64(amount * 100),
 			}
 			return nil
@@ -359,26 +367,16 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 
 // 刷新/获取授权token
 // DOC:https://docs.open.alipay.com/api_9/alipay.open.auth.token.app
-// 传入参数为RefreshToken格式
+// 传入参数为Token格式
 // 返回为 UserResult
-func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
+// 如果刷新获取token后返回的user_id已经存在会更新，不存在新生成用户
+func (A *AliPay) Token(request *Token, resp *UserResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	var user User
 	params := map[string]interface{}{}
-	if request.Type == "refresh" {
-		user = getUser(request.UserId, PAYTYPE_ALIPAY)
-		if user.UserId == "" {
-			resp.Code = AuthErr
-			return nil
-		}
-		params["grant_type"] = "refresh_token"
-		params["refresh_token"] = user.ReToken
-	} else {
-		params["grant_type"] = "authorization_code"
-		params["code"] = request.Code
-	}
+	params["grant_type"] = "authorization_code"
+	params["code"] = request.Code
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.open.auth.token.app"
 	sysParams["biz_content"] = string(jsonEncode(params))
@@ -408,19 +406,20 @@ func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
 		} else {
 			//成功返回
 			tmpresult := result.(map[string]interface{})
-			if user.UserId == "" {
-				user = getUser(tmpresult["user_id"].(string), PAYTYPE_ALIPAY)
-			}
+			mchid := tmpresult["user_id"].(string)
+			user := getUserByMchId(mchid, PAYTYPE_ALIPAY)
 			user.Token = tmpresult["app_auth_token"].(string)
 			user.ReToken = tmpresult["app_refresh_token"].(string)
 			user.ExAt = request.r.time + int64(tmpresult["expires_in"].(float64))
-			resp.Data = user
+			//TODO:不能返回token的等信息
+			/*resp.Data = user*/
 			//保存用户授权
 			if user.UserId != "" {
-				updateUser(user.UserId, user.Source, bson.M{"$set": user})
+				updateUser(user.UserId, PAYTYPE_ALIPAY, bson.M{"$set": user})
 			} else {
-				user.UserId = tmpresult["user_id"].(string)
-				user.Source = PAYTYPE_ALIPAY
+				user.UserId = randomString(15)
+				user.MchId = mchid
+				user.Type = PAYTYPE_ALIPAY
 				saveUser(user)
 			}
 			return nil

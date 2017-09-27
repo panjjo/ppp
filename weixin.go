@@ -248,6 +248,7 @@ func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
 				Memo:       request.Memo,
 				Status:     1,
 				TradeId:    tmpresult["refund_id"].(string),
+				ParentId:   trade.Data.Id,
 			}
 			saveTrade(resp.Data)
 			return nil

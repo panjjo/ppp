@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,12 +19,15 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 var _system_id int64
 
 func init() {
 	_system_id = 0
+	gob.Register(bson.M{})
 
 	go resetSystemId()
 }

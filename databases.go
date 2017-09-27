@@ -1,8 +1,6 @@
 package ppp
 
 import (
-	"fmt"
-
 	"github.com/panjjo/ppp/pool"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -22,7 +20,13 @@ func getUser(userid string, t string) User {
 	defer session.Close()
 	user := User{}
 	session.DB().C("user").Find(bson.M{"userid": userid, "type": t}).One(&user)
-	fmt.Println(user)
+	return user
+}
+func getUserByMchId(mchid, t string) User {
+	session := DBPool.Get()
+	defer session.Close()
+	user := User{}
+	session.DB().C("user").Find(bson.M{"mchid": mchid, "type": t}).One(&user)
 	return user
 }
 

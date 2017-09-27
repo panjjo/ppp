@@ -31,7 +31,6 @@ const (
 	TradeStatusClose          = -1 //取消/退款
 	TradeStatusRefund         = -2 //取消/退款
 	TradeStatusSucc           = 1  //成功结束
-
 )
 
 const (
@@ -72,6 +71,7 @@ type Trade struct {
 	Type       int    //1:入账，-1：出账
 	Amount     int64
 	Source     string // alipay,wxpay
+	ParentId   string //来源主ID
 	PayTime    int64
 	UpTime     int64
 	Ex         interface{}
@@ -87,11 +87,10 @@ type TradeResult struct {
 }
 
 //刷新token
-type RefreshToken struct {
-	Type   string `json:"type" description:"刷新方式 refush 刷新，code 第一次获取"`
-	Code   string `json:"code" description:"第一次获取时需要传入兑换码"`
-	UserId string `json:"userid" description:"权限对应的UserId"`
-	r      rsys
+type Token struct {
+	Type string `json:"type" description:"code 第一次获取"`
+	Code string `json:"code" description:"第一次获取时需要传入兑换码"`
+	r    rsys
 }
 
 //退款请求
@@ -107,8 +106,10 @@ type RefundRequest struct {
 
 //user
 type User struct {
-	UserId  string
-	Source  string
+	UserId  string //外部用户id
+	MchId   string //第三方id
+	Status  Status
+	Type    string
 	Token   string
 	ExAt    int64
 	ReToken string
