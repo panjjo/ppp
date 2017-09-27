@@ -1,15 +1,20 @@
 package ppp
 
 import (
+	"crypto/md5"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -102,6 +107,45 @@ func jsonDecode(data []byte, ob interface{}) error {
 }
 
 /**
+  生成随机字符串
+*/
+func randomString(lens int) string {
+	now := time.Now()
+	return makeMd5(strconv.FormatInt(now.UnixNano(), 10))[:lens]
+}
+
+/**
+  将struct转化为map，tag：json,xml
+*/
+func structToMap(obj interface{}, tag string) map[string]string {
+	t := reflect.TypeOf(obj)
+	v := reflect.ValueOf(obj)
+
+	m := map[string]string{}
+	for i := 0; i < t.NumField(); i++ {
+		fv := v.Field(i)
+		t := t.Field(i).Tag.Get(tag)
+		switch v.Field(i).Interface().(type) {
+		case string:
+			m[t] = fv.String()
+		case int, int64:
+			m[t] = strconv.FormatInt(fv.Int(), 10)
+		}
+	}
+	return m
+}
+
+/**
+  字符串md5
+*/
+func makeMd5(str string) string {
+	h := md5.New()
+	io.WriteString(h, str)
+	s := fmt.Sprintf("%x", h.Sum(nil))
+	return s
+}
+
+/**
   map排序
 */
 
@@ -122,9 +166,9 @@ func (ms mapSorter) Swap(i, j int) {
 }
 
 /**
-  map排序并根据排序结果kv拼接
+  map排序并根据排序结果kv拼接,empty:是否去除空值
 */
-func mapSortAndJoin(m map[string]string, step1, step2 string) string {
+func mapSortAndJoin(m map[string]string, step1, step2 string, empty bool) string {
 	ms := make(mapSorter, 0, len(m))
 	for k, v := range m {
 		ms = append(ms, sortItem{k, v})
@@ -132,7 +176,9 @@ func mapSortAndJoin(m map[string]string, step1, step2 string) string {
 	sort.Sort(ms)
 	s := []string{}
 	for _, p := range ms {
-		s = append(s, p.Key+step1+p.Val.(string))
+		if p.Val.(string) != "" || !empty {
+			s = append(s, p.Key+step1+p.Val.(string))
+		}
 	}
 	return strings.Join(s, step2)
 }
@@ -155,6 +201,20 @@ func timeoutClient() *http.Client {
 		},
 	}
 }
+
+/**
+  网络请求链接定义
+*/
+func timeoutClientWithTLS(tlsConfig *tls.Config) *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig:     tlsConfig,
+			Dial:                timeoutDialer(connectTimeout, readWriteTimeout),
+			MaxIdleConnsPerHost: 200,
+			DisableKeepAlives:   true,
+		},
+	}
+}
 func timeoutDialer(cTimeout time.Duration,
 	rwTimeout time.Duration) func(net, addr string) (c net.Conn, err error) {
 	return func(netw, addr string) (net.Conn, error) {
@@ -165,6 +225,42 @@ func timeoutDialer(cTimeout time.Duration,
 		conn.SetDeadline(time.Now().Add(rwTimeout))
 		return conn, nil
 	}
+}
+
+/*
+	发送带有超时的Post请求
+*/
+func postRequest(url, content_type string, body io.Reader) ([]byte, error) {
+	client := timeoutClient()
+	resp, err := client.Post(url, content_type, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return respbody, nil
+}
+
+/*
+	发送带有超时的Post https请求
+*/
+func postRequestTls(url, content_type string, body io.Reader, tlsConfig *tls.Config) ([]byte, error) {
+	client := timeoutClientWithTLS(tlsConfig)
+	resp, err := client.Post(url, content_type, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return respbody, nil
 }
 
 /*

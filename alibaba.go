@@ -35,6 +35,12 @@ func (a *AliPayInit) Init() {
 type AliPay struct {
 }
 
+// 获取用户信息
+// DOC:https://docs.open.alipay.com/api_2/alipay.user.info.share
+func (A *AliPay) UserInfo(userid string, resp *UserResult) error {
+	return nil
+}
+
 // 统一收单支付接口
 // DOC:https://docs.open.alipay.com/api_1/alipay.trade.pay
 // 传入参数为 BarCodePayRequest格式
@@ -62,7 +68,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 	sysParams["method"] = "alipay.trade.pay"
 	sysParams["biz_content"] = string(jsonEncode(params))
 	//设置子商户数据
-	user := getUser(request.UserId, "alipay")
+	user := getUser(request.UserId, PAYTYPE_ALIPAY)
 	if user.UserId == "" {
 		resp.Code = AuthErr
 		return nil
@@ -149,7 +155,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 			Id:         randomTimeString(),
 			Amount:     int64(amount * 100),
 			OutTradeId: request.OutTradeId,
-			Source:     "alipay",
+			Source:     PAYTYPE_ALIPAY,
 			PayTime:    request.r.time,
 			UpTime:     request.r.time,
 			Type:       1,
@@ -172,7 +178,7 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	user := getUser(request.UserId, "alipay")
+	user := getUser(request.UserId, PAYTYPE_ALIPAY)
 	if user.UserId == "" {
 		resp.Code = AuthErr
 		return nil
@@ -217,8 +223,8 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 			resp.Data = Trade{
 				Id:         randomTimeString(),
 				Amount:     int64(amount * 100),
-				OutTradeId: request.OutTradeId,
-				Source:     "alipay",
+				OutTradeId: request.RefundId,
+				Source:     PAYTYPE_ALIPAY,
 				Type:       -1,
 				PayTime:    request.r.time,
 				UpTime:     request.r.time,
@@ -241,7 +247,7 @@ func (A *AliPay) Cancel(request *TradeRequest, resp *Response) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	user := getUser(request.UserId, "alipay")
+	user := getUser(request.UserId, PAYTYPE_ALIPAY)
 	if user.UserId == "" {
 		resp.Code = AuthErr
 		return nil
@@ -292,7 +298,7 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	user := getUser(request.UserId, "alipay")
+	user := getUser(request.UserId, PAYTYPE_ALIPAY)
 	if user.UserId == "" {
 		resp.Code = AuthErr
 		return nil
@@ -354,7 +360,7 @@ func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
 	var user User
 	params := map[string]interface{}{}
 	if request.Type == "refresh" {
-		user = getUser(request.UserId, "alipay")
+		user = getUser(request.UserId, PAYTYPE_ALIPAY)
 		if user.UserId == "" {
 			resp.Code = AuthErr
 			return nil
@@ -395,7 +401,7 @@ func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
 			//成功返回
 			tmpresult := result.(map[string]interface{})
 			if user.UserId == "" {
-				user = getUser(tmpresult["user_id"].(string), "alipay")
+				user = getUser(tmpresult["user_id"].(string), PAYTYPE_ALIPAY)
 			}
 			user.Token = tmpresult["app_auth_token"].(string)
 			user.ReToken = tmpresult["app_refresh_token"].(string)
@@ -406,7 +412,7 @@ func (A *AliPay) RefreshToken(request *RefreshToken, resp *UserResult) error {
 				updateUser(user.UserId, user.Source, bson.M{"$set": user})
 			} else {
 				user.UserId = tmpresult["user_id"].(string)
-				user.Source = "alipay"
+				user.Source = PAYTYPE_ALIPAY
 				saveUser(user)
 			}
 			return nil
@@ -481,7 +487,7 @@ var aliErrMap = map[string]int{
 	"40004ACQ.TRADE_HAS_SUCCESS":          PayErrPayed,
 	"40004ACQ.TRADE_NOT_EXIST":            TradeErrNotFound,
 	"40004ACQ.TRADE_STATUS_ERROR":         TradeErrStatus,
-	"40004ACQ.SELLER_BALANCE_NOT_ENOUGH":  RefundErrBalance,
+	"40004ACQ.SELLER_BALANCE_NOT_ENOUGH":  UserErrBalance,
 	"40004ACQ.REFUND_AMT_NOT_EQUAL_TOTAL": RefundErrAmount,
 }
 var aliTradeStatusMap = map[string]int{

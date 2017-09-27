@@ -5,6 +5,8 @@ import "gopkg.in/mgo.v2/bson"
 const (
 	AuthErr = 9001 //授权错误
 
+	SysErrParams = 1001 //参数错误
+
 	PayErr      = 2000 //支付失败
 	PayErrPayed = 2001 //重复支付
 	PayErrCode  = 2001 //支付码无效
@@ -13,17 +15,24 @@ const (
 	TradeErrNotFound = 3001 //交易不存在
 	TradeErrStatus   = 3002 //交易状态错误
 
-	RefundErr        = 4000 //退款错误
-	RefundErrBalance = 4001 //账户余额错误
-	RefundErrAmount  = 4001 //退款金额错误
+	RefundErr       = 4000 //退款错误
+	RefundErrAmount = 4001 //退款金额错误
+	RefundErrExpire = 4002 //退款以超期
 
 	TradeQueryErr = 5000 //查询失败
+
+	UserErrBalance = 6001 //账户余额错误
 
 	TradeStatusWaitPay = 0  //未支付
 	TradeStatusClose   = -1 //取消/退款
 	TradeStatusRefund  = -2 //取消/退款
 	TradeStatusSucc    = 1  //成功结束
 
+)
+
+const (
+	PAYTYPE_ALIPAY = "alipay"
+	PAYTYPE_WXPAY  = "wxpay"
 )
 
 type rsys struct {
