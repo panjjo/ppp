@@ -30,13 +30,13 @@ const (
 	UserErrNotFount = 6603 //账户不存在
 
 	TradeStatusWaitPay Status = 0  //未支付
-	TradeStatusClose          = -1 //取消/退款
-	TradeStatusRefund         = -2 //取消/退款
-	TradeStatusSucc           = 1  //成功结束
+	TradeStatusClose   Status = -1 //取消/退款
+	TradeStatusRefund  Status = -2 //取消/退款
+	TradeStatusSucc    Status = 1  //成功结束
 
 	UserWaitVerify Status = 0  //等待审核或等待授权
-	UserFreeze            = -1 //冻结
-	UserSucc              = 1  //正常
+	UserFreeze     Status = -1 //冻结
+	UserSucc       Status = 1  //正常
 )
 
 const (

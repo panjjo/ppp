@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+const (
+	FC_WXPAY_BARCODEPAY string = "WXPay.BarCodePay"
+	FC_WXPAY_CANCEL     string = "WXPay.Cancel"
+	FC_WXPAY_REFUND     string = "WXPay.Refund"
+	FC_WXPAY_TRADEINFO  string = "WXPay.TradeInfo"
+)
+
 var (
 	wxPayUrl   string //微信支付请求地址
 	wxPayAppId string //微信公众号ID

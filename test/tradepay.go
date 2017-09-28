@@ -20,7 +20,7 @@ func main() {
 		ItemDes:    "快速收银,临时商品",
 		AuthCode:   "283133232310613353",
 		Amount:     100,
-		UserId:     "1234"}, &tradePayResult)
+		UserId:     "2088102169330843"}, &tradePayResult)
 	if err != nil {
 		fmt.Println("ERROR:", err)
 	}
