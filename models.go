@@ -32,7 +32,7 @@ const (
 	TradeStatusWaitPay Status = 0  //未支付
 	TradeStatusClose   Status = -1 //取消/退款
 	TradeStatusRefund  Status = -2 //取消/退款
-	TradeStatusSucc    Statue = 1  //成功结束
+	TradeStatusSucc    Status = 1  //成功结束
 
 	UserWaitVerify Status = 0  //等待审核或等待授权
 	UserFreeze     Status = -1 //冻结
