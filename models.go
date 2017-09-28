@@ -25,17 +25,24 @@ const (
 
 	TradeQueryErr = 5000 //查询失败
 
-	UserErrBalance = 6001 //账户余额错误
+	UserErrBalance  = 6001 //账户余额错误
+	UserErrRegisted = 6002 //账户已存在
+	UserErrNotFount = 6603 //账户不存在
 
 	TradeStatusWaitPay Status = 0  //未支付
 	TradeStatusClose          = -1 //取消/退款
 	TradeStatusRefund         = -2 //取消/退款
 	TradeStatusSucc           = 1  //成功结束
+
+	UserWaitVerify Status = 0  //等待审核或等待授权
+	UserFreeze            = -1 //冻结
+	UserSucc              = 1  //正常
 )
 
 const (
 	PAYTYPE_ALIPAY = "alipay"
 	PAYTYPE_WXPAY  = "wxpay"
+	PAYTYPE_PPP    = "ppp"
 )
 
 type rsys struct {
@@ -86,13 +93,6 @@ type TradeResult struct {
 	Code       int
 }
 
-//刷新token
-type Token struct {
-	Type string `json:"type" description:"code 第一次获取"`
-	Code string `json:"code" description:"第一次获取时需要传入兑换码"`
-	r    rsys
-}
-
 //退款请求
 type RefundRequest struct {
 	Memo       string
@@ -104,22 +104,55 @@ type RefundRequest struct {
 	r          rsys
 }
 
-//user
-type User struct {
-	UserId  string //外部用户id
-	MchId   string //第三方id
-	Status  Status
-	Type    string
+//刷新token
+type Token struct {
+	Code    string `json:"code" description:"第一次获取时需要传入兑换码"`
+	refresh bool
+	r       rsys
+}
+
+//授权
+type authBase struct {
+	Id      string
 	Token   string
-	ExAt    int64
-	ReToken string
+	ExAt    int64  //token失效日期
+	ReToken string //refresh_token
+	MchId   string
+	Type    string
+}
+type Auth struct {
+	Id    string
+	MchId string
+	Type  string
+}
+type AuthResult struct {
+	Data       Auth
+	SourceData string
+	Code       int
+}
+
+//账户
+type User struct {
+	Id     string
+	UserId string //外部用户id
+	MchId  string //第三方id
+	Status Status
+	Amount int64 //账户余额
+	Type   string
 }
 
 //用户返回
-type UserResult struct {
+type AccountResult struct {
 	Data       User
 	SourceData string
 	Code       int
+}
+
+//用户授权
+type AccountAuth struct {
+	UserId string
+	MchId  string
+	Type   string
 }
 
 //通用返回

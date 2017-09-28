@@ -26,6 +26,10 @@ func main() {
 	statement := new(ppp.Statement)
 	rpc.Register(statement)
 
+	//account
+	account := new(ppp.Account)
+	rpc.Register(account)
+
 	//alipay
 	config.Mod = ppp.PAYTYPE_ALIPAY
 	if ok, err := config.GetBool("status"); ok {
@@ -36,7 +40,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//alipay
+	//wxpay
 	config.Mod = ppp.PAYTYPE_WXPAY
 	if ok, err := config.GetBool("status"); ok {
 		initWXPay()

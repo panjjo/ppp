@@ -22,19 +22,35 @@ func getUser(userid string, t string) User {
 	session.DB().C("user").Find(bson.M{"userid": userid, "type": t}).One(&user)
 	return user
 }
-func getUserByMchId(mchid, t string) User {
-	session := DBPool.Get()
-	defer session.Close()
-	user := User{}
-	session.DB().C("user").Find(bson.M{"mchid": mchid, "type": t}).One(&user)
-	return user
-}
 
 //更新用户信息
 func updateUser(userid string, t string, update bson.M) error {
 	session := DBPool.Get()
 	defer session.Close()
 	return session.DB().C("user").Update(bson.M{"userid": userid, "type": t}, update)
+}
+
+//获取授权
+func getToken(mchid, t string) authBase {
+	session := DBPool.Get()
+	defer session.Close()
+	auth := authBase{}
+	session.DB().C("auth").Find(bson.M{"mchid": mchid, "type": t}).One(&auth)
+	return auth
+}
+
+//刷新授权
+func updateToken(mchid, t string, update bson.M) error {
+	session := DBPool.Get()
+	defer session.Close()
+	return session.DB().C("auth").Update(bson.M{"mchid": mchid, "type": t}, update)
+}
+
+//保存授权
+func saveToken(auth authBase) error {
+	session := DBPool.Get()
+	defer session.Close()
+	return session.DB().C("auth").Insert(auth)
 }
 
 //新增交易

@@ -45,7 +45,7 @@ type AliPay struct {
 
 // 获取用户信息
 // DOC:https://docs.open.alipay.com/api_2/alipay.user.info.share
-func (A *AliPay) UserInfo(userid string, resp *UserResult) error {
+func (A *AliPay) UserInfo(userid string, resp *Response) error {
 	return nil
 }
 
@@ -77,11 +77,13 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 	sysParams["biz_content"] = string(jsonEncode(params))
 	//设置子商户数据
 	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	if user.UserId == "" {
+	if user.Status != UserSucc {
 		resp.Code = AuthErr
 		return nil
 	}
-	sysParams["app_auth_token"] = user.Token
+	//获取授权
+	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	sysParams["app_auth_token"] = auth.Token
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
 	requestParams := aliPayUrl + "?" + httpBuildQuery(sysParams)
@@ -102,8 +104,8 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 			if next == 1 {
 				//重新授权后重试
 				//重刷Token
-				tokenResp := UserResult{}
-				if A.Token(&Token{Type: "refresh_token", r: request.r}, &tokenResp); tokenResp.Code == 1000 {
+				tokenResp := AuthResult{}
+				if A.Auth(&Token{refresh: true, Code: auth.ReToken, r: request.r}, &tokenResp); tokenResp.Code == 1000 {
 					//重刷token后需要重新组装请求数据
 					return A.BarCodePay(request, resp)
 				} else {
@@ -187,7 +189,7 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 		request.r.time = getNowSec()
 	}
 	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	if user.UserId == "" {
+	if user.Status != UserSucc {
 		resp.Code = AuthErr
 		return nil
 	}
@@ -264,7 +266,7 @@ func (A *AliPay) Cancel(request *TradeRequest, resp *Response) error {
 		request.r.time = getNowSec()
 	}
 	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	if user.UserId == "" {
+	if user.Status != UserSucc {
 		resp.Code = AuthErr
 		return nil
 	}
@@ -315,7 +317,7 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		request.r.time = getNowSec()
 	}
 	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	if user.UserId == "" {
+	if user.Status != UserSucc {
 		resp.Code = AuthErr
 		return nil
 	}
@@ -368,15 +370,20 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 // 刷新/获取授权token
 // DOC:https://docs.open.alipay.com/api_9/alipay.open.auth.token.app
 // 传入参数为Token格式
-// 返回为 UserResult
-// 如果刷新获取token后返回的user_id已经存在会更新，不存在新生成用户
-func (A *AliPay) Token(request *Token, resp *UserResult) error {
+// 返回为 AuthResult
+// 如果刷新获取token后返回的第三方授权已经存在会更新，不存在新生授权
+func (A *AliPay) Auth(request *Token, resp *AuthResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
 	params := map[string]interface{}{}
-	params["grant_type"] = "authorization_code"
-	params["code"] = request.Code
+	if request.refresh {
+		params["grant_type"] = "authorization_code"
+		params["refresh_token"] = request.Code
+	} else {
+		params["grant_type"] = "authorization_code"
+		params["code"] = request.Code
+	}
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.open.auth.token.app"
 	sysParams["biz_content"] = string(jsonEncode(params))
@@ -388,8 +395,8 @@ func (A *AliPay) Token(request *Token, resp *UserResult) error {
 	var err error
 	for getNowSec()-request.r.time < 30 {
 		result, next, err = A.request(requestParams, "alipay_open_auth_token_app_response")
-		resp.SourceData = string(jsonEncode(result))
 		if err != nil {
+			resp.SourceData = string(jsonEncode(result))
 			if v, ok := aliErrMap[err.Error()]; ok {
 				resp.Code = v
 			} else {
@@ -407,20 +414,23 @@ func (A *AliPay) Token(request *Token, resp *UserResult) error {
 			//成功返回
 			tmpresult := result.(map[string]interface{})
 			mchid := tmpresult["user_id"].(string)
-			user := getUserByMchId(mchid, PAYTYPE_ALIPAY)
-			user.Token = tmpresult["app_auth_token"].(string)
-			user.ReToken = tmpresult["app_refresh_token"].(string)
-			user.ExAt = request.r.time + int64(tmpresult["expires_in"].(float64))
-			//TODO:不能返回token的等信息
-			/*resp.Data = user*/
+			auth := getToken(mchid, PAYTYPE_ALIPAY)
+			auth.Token = tmpresult["app_auth_token"].(string)
+			auth.ReToken = tmpresult["app_refresh_token"].(string)
+			auth.ExAt = request.r.time + int64(tmpresult["expires_in"].(float64))
 			//保存用户授权
-			if user.UserId != "" {
-				updateUser(user.UserId, PAYTYPE_ALIPAY, bson.M{"$set": user})
+			if auth.MchId != "" {
+				updateToken(auth.MchId, PAYTYPE_ALIPAY, bson.M{"$set": auth})
 			} else {
-				user.UserId = randomString(15)
-				user.MchId = mchid
-				user.Type = PAYTYPE_ALIPAY
-				saveUser(user)
+				auth.Id = randomString(15)
+				auth.MchId = mchid
+				auth.Type = PAYTYPE_ALIPAY
+				saveToken(auth)
+			}
+			resp.Data = Auth{
+				MchId: auth.MchId,
+				Id:    auth.Id,
+				Type:  auth.Type,
 			}
 			return nil
 		}
