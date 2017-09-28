@@ -18,11 +18,11 @@ var (
 )
 
 const (
-	FC_ALIPAY_BARCODEPAY   string = "AliPay.BarCodePay"
-	FC_ALIPAY_CANCEL       string = "AliPay.Cancel"
-	FC_ALIPAY_REFRESHTOKEN string = "AliPay.RefreshToken"
-	FC_ALIPAY_REFUND       string = "AliPay.Refund"
-	FC_ALIPAY_TRADEINFO    string = "AliPay.TradeInfo"
+	FC_ALIPAY_BARCODEPAY string = "AliPay.BarCodePay" //支付宝条码支付
+	FC_ALIPAY_CANCEL     string = "AliPay.Cancel"     //支付宝取消交易
+	FC_ALIPAY_AUTH       string = "AliPay.Auth"       //支付宝授权
+	FC_ALIPAY_REFUND     string = "AliPay.Refund"     //支付宝退款
+	FC_ALIPAY_TRADEINFO  string = "AliPay.TradeInfo"  //支付宝订单详情
 )
 
 type AliPayInit struct {
@@ -83,6 +83,10 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 	}
 	//获取授权
 	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
+	}
 	sysParams["app_auth_token"] = auth.Token
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
@@ -119,7 +123,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 				if trade.Code == TradeErrNotFound {
 					//订单不存在，重试
 					time.Sleep(1 * time.Second)
-				} else if trade.Data.Status == 1 {
+				} else if trade.Data.Status == TradeStatusSucc {
 					paySucc = true
 					//存在支付成功
 					break
@@ -134,7 +138,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 				//获取一次一直到成功
 				for getNowSec()-request.r.time < 30 {
 					A.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &trade)
-					if trade.Code == 1000 && trade.Data.Status == 1 {
+					if trade.Code == 0 && trade.Data.Status == TradeStatusSucc {
 						//订单存在且支付
 						//取消撤销
 						needCancel = false
@@ -193,6 +197,12 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 		resp.Code = AuthErr
 		return nil
 	}
+	//获取授权
+	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
+	}
 	trade := TradeResult{}
 	A.TradeInfo(&TradeRequest{r: request.r, UserId: request.UserId, OutTradeId: request.OutTradeId}, &trade)
 	if trade.Code != 0 {
@@ -209,6 +219,7 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 	}
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.trade.refund"
+	sysParams["app_auth_token"] = auth.Token
 	sysParams["biz_content"] = string(jsonEncode(params))
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
@@ -270,6 +281,12 @@ func (A *AliPay) Cancel(request *TradeRequest, resp *Response) error {
 		resp.Code = AuthErr
 		return nil
 	}
+	//获取授权
+	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
+	}
 	params := map[string]interface{}{
 		"out_trade_no": request.OutTradeId,
 		"trade_no":     request.TradeId,
@@ -277,6 +294,7 @@ func (A *AliPay) Cancel(request *TradeRequest, resp *Response) error {
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.trade.cancel"
 	sysParams["biz_content"] = string(jsonEncode(params))
+	sysParams["app_auth_token"] = auth.Token
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
 	requestParams := aliPayUrl + "?" + httpBuildQuery(sysParams)
@@ -321,6 +339,12 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		resp.Code = AuthErr
 		return nil
 	}
+	//获取授权
+	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
+	}
 	params := map[string]interface{}{
 		"out_trade_no": request.OutTradeId,
 		"trade_no":     request.TradeId,
@@ -328,6 +352,7 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.trade.query"
 	sysParams["biz_content"] = string(jsonEncode(params))
+	sysParams["app_auth_token"] = auth.Token
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
 	requestParams := aliPayUrl + "?" + httpBuildQuery(sysParams)
@@ -428,9 +453,10 @@ func (A *AliPay) Auth(request *Token, resp *AuthResult) error {
 				saveToken(auth)
 			}
 			resp.Data = Auth{
-				MchId: auth.MchId,
-				Id:    auth.Id,
-				Type:  auth.Type,
+				MchId:  auth.MchId,
+				Id:     auth.Id,
+				Type:   auth.Type,
+				Status: auth.Status,
 			}
 			return nil
 		}
@@ -444,6 +470,7 @@ func (A *AliPay) request(url string, okey string) (interface{}, int, error) {
 	if err != nil {
 		//网络发起请求失败
 		//需重试
+		fmt.Println(err)
 		return nil, -1, err
 	}
 	fmt.Println(string(body))

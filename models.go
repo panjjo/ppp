@@ -7,7 +7,8 @@ import (
 type Status int
 
 const (
-	AuthErr = 9001 //授权错误
+	AuthErr          = 9001 //授权错误
+	AuthErrNotSigned = 9002 //未签约
 
 	SysErrParams = 1001 //参数错误
 
@@ -34,9 +35,12 @@ const (
 	TradeStatusRefund         = -2 //取消/退款
 	TradeStatusSucc           = 1  //成功结束
 
-	UserWaitVerify Status = 0  //等待审核或等待授权
+	UserWaitVerify Status = 0  //等待审核或等待授权签约
 	UserFreeze            = -1 //冻结
 	UserSucc              = 1  //正常
+
+	AuthStatusSucc       Status = 1
+	AuthStatusWaitSigned        = 0
 )
 
 const (
@@ -117,13 +121,15 @@ type authBase struct {
 	Token   string
 	ExAt    int64  //token失效日期
 	ReToken string //refresh_token
+	Status  Status
 	MchId   string
 	Type    string
 }
 type Auth struct {
-	Id    string
-	MchId string
-	Type  string
+	Id     string
+	MchId  string
+	Type   string
+	Status Status
 }
 type AuthResult struct {
 	Data       Auth

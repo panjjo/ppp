@@ -6,6 +6,7 @@ type Account struct {
 }
 
 //账户注册
+//如果传入macid表示直接绑定授权帐号
 func (A *Account) Regist(request *User, resp *AccountResult) error {
 	if getUser(request.UserId, request.Type).UserId != "" {
 		resp.Code = UserErrRegisted
@@ -33,6 +34,7 @@ func (A *Account) Regist(request *User, resp *AccountResult) error {
 }
 
 //账户授权
+//将账户和授权绑定
 func (A *Account) Auth(request *AccountAuth, resp *Response) error {
 	//查询用户
 	var user User
@@ -40,12 +42,13 @@ func (A *Account) Auth(request *AccountAuth, resp *Response) error {
 		resp.Code = UserErrNotFount
 		return nil
 	}
-	if getToken(request.MchId, request.Type).Id == "" {
+	var auth authBase
+	if auth = getToken(request.MchId, request.Type); auth.Id == "" {
 		resp.Code = AuthErr
 		return nil
 	}
 	user.MchId = request.MchId
-	user.Status = 1
+	user.Status = auth.Status
 	updateUser(user.UserId, user.Type, bson.M{"$set": user})
 	return nil
 }

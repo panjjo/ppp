@@ -12,6 +12,13 @@ var (
 	wxPayMchId string //微信支付商户号
 )
 
+const (
+	FC_WXPAY_BARCODEPAY string = "WXPay.BarCodePay" //条码支付
+	FC_WXPAY_CANCEL     string = "WXPay.Cancel"     //取消交易
+	FC_WXPAY_REFUND     string = "WXPay.Refund"     //退款
+	FC_WXPAY_TRADEINFO  string = "WXPay.TradeInfo"  //订单详情
+)
+
 type WXPayInit struct {
 	AppId      string
 	Url        string
@@ -64,7 +71,7 @@ type WXPay struct {
 // DOC:https://pay.weixin.qq.com/wiki/doc/api/micropay_sl.php?chapter=9_10&index=1
 // 传入参数为 BarCodePayRequest格式
 // 返回参数为 TradeResult
-// userid 为收款方自定义id,应存在签约授权成功后保存的对应关系,传空表示收款到开发者支付宝帐号
+// userid 为收款方自定义id,应存在签约授权成功后保存的对应关系
 func (W *WXPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
@@ -80,7 +87,7 @@ func (W *WXPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error 
 		SpbillCreateIp: "",
 	}
 	user := getUser(request.UserId, PAYTYPE_WXPAY)
-	if user.UserId == "" {
+	if user.Status != UserSucc {
 		resp.Code = AuthErr
 		return nil
 	}
