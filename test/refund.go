@@ -15,10 +15,10 @@ func main() {
 	}
 	refundResult := ppp.TradeResult{}
 	err = client.Call("AliPay.Refund", ppp.RefundRequest{
-		OutTradeId: "20178752412436",
+		OutTradeId: "20178792413436",
 		Amount:     100,
 		Memo:       "test1234",
-		UserId:     "2088102169330843"}, &refundResult)
+		UserId:     "ebbcb0f8c999c2b"}, &refundResult)
 	fmt.Println(refundResult)
 	if err != nil {
 		fmt.Println(err)

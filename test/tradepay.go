@@ -15,10 +15,10 @@ func main() {
 	}
 	tradePayResult := ppp.TradeResult{}
 	err = client.Call(ppp.FC_ALIPAY_BARCODEPAY, ppp.BarCodePayRequest{
-		OutTradeId: "20178752412436",
+		OutTradeId: "20174792413436",
 		TradeName:  "Craig",
 		ItemDes:    "快速收银,临时商品",
-		AuthCode:   "280157639334315793",
+		AuthCode:   "283133232310613353",
 		Amount:     100,
 		UserId:     "2088102169330843"}, &tradePayResult)
 	if err != nil {

@@ -26,12 +26,26 @@ func main() {
 	statement := new(ppp.Statement)
 	rpc.Register(statement)
 
+	//account
+	account := new(ppp.Account)
+	rpc.Register(account)
+
 	//alipay
-	config.Mod = "alipay"
+	config.Mod = ppp.PAYTYPE_ALIPAY
 	if ok, err := config.GetBool("status"); ok {
 		initAliPay()
 		ali := new(ppp.AliPay)
 		rpc.Register(ali)
+	} else {
+		log.Fatal(err)
+	}
+
+	//wxpay
+	config.Mod = ppp.PAYTYPE_WXPAY
+	if ok, err := config.GetBool("status"); ok {
+		initWXPay()
+		wx := new(ppp.WXPay)
+		rpc.Register(wx)
 	} else {
 		log.Fatal(err)
 	}
@@ -60,10 +74,26 @@ func initAliPay() {
 	}
 	var err error
 	if ali.AppId, err = config.GetString("appid"); err != nil {
-		log.Fatal("Init Error:Not Found alipay:appid")
+		log.Fatal("Init Error:Not Found wxpay:appid")
 	}
 	if ali.Url, err = config.GetString("url"); err != nil {
-		log.Fatal("Init Error:Not Found alipay:url")
+		log.Fatal("Init Error:Not Found wxpay:url")
 	}
 	ali.Init()
+}
+func initWXPay() {
+	wx := ppp.WXPayInit{
+		ConfigPath: configPath,
+	}
+	var err error
+	if wx.AppId, err = config.GetString("appid"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:appid")
+	}
+	if wx.Url, err = config.GetString("url"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:url")
+	}
+	if wx.MchId, err = config.GetString("mchid"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:mchid")
+	}
+	wx.Init()
 }

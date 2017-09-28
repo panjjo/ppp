@@ -9,6 +9,8 @@ type Status int
 const (
 	AuthErr = 9001 //授权错误
 
+	SysErrParams = 1001 //参数错误
+
 	PayErr      = 2000 //支付失败
 	PayErrPayed = 2001 //重复支付
 	PayErrCode  = 2001 //支付码无效
@@ -17,24 +19,30 @@ const (
 	TradeErrNotFound = 3001 //交易不存在
 	TradeErrStatus   = 3002 //交易状态错误
 
-	RefundErr        = 4000 //退款错误
-	RefundErrBalance = 4001 //账户余额错误
-	RefundErrAmount  = 4001 //退款金额错误
+	RefundErr       = 4000 //退款错误
+	RefundErrAmount = 4001 //退款金额错误
+	RefundErrExpire = 4002 //退款以超期
 
 	TradeQueryErr = 5000 //查询失败
 
-	TradeStatusWaitPay Status = 0  //未支付
-	TradeStatusClose          = -1 //取消/退款
-	TradeStatusRefund         = -2 //取消/退款
-	TradeStatusSucc           = 1  //成功结束
+	UserErrBalance  = 6001 //账户余额错误
+	UserErrRegisted = 6002 //账户已存在
+	UserErrNotFount = 6603 //账户不存在
 
+	TradeStatusWaitPay Status = 0  //未支付
+	TradeStatusClose   Status = -1 //取消/退款
+	TradeStatusRefund  Status = -2 //取消/退款
+	TradeStatusSucc    Statue = 1  //成功结束
+
+	UserWaitVerify Status = 0  //等待审核或等待授权
+	UserFreeze     Status = -1 //冻结
+	UserSucc       Status = 1  //正常
 )
 
-type PayType string
-
 const (
-	PAYTYPE_ALIPAY PayType = "alipay"
-	PAYTYPE_WXPAY          = "wxpay"
+	PAYTYPE_ALIPAY = "alipay"
+	PAYTYPE_WXPAY  = "wxpay"
+	PAYTYPE_PPP    = "ppp"
 )
 
 type rsys struct {
@@ -69,7 +77,8 @@ type Trade struct {
 	Status     Status //1:完成， -1：取消
 	Type       int    //1:入账，-1：出账
 	Amount     int64
-	Source     PayType // alipay,wxpay
+	Source     string // alipay,wxpay
+	ParentId   string //来源主ID
 	PayTime    int64
 	UpTime     int64
 	Ex         interface{}
@@ -84,14 +93,6 @@ type TradeResult struct {
 	Code       int
 }
 
-//刷新token
-type RefreshToken struct {
-	Type   string `json:"type" description:"刷新方式 refush 刷新，code 第一次获取"`
-	Code   string `json:"code" description:"第一次获取时需要传入兑换码"`
-	UserId string `json:"userid" description:"权限对应的UserId"`
-	r      rsys
-}
-
 //退款请求
 type RefundRequest struct {
 	Memo       string
@@ -103,20 +104,55 @@ type RefundRequest struct {
 	r          rsys
 }
 
-//user
-type User struct {
-	UserId  string
-	Source  string
+//刷新token
+type Token struct {
+	Code    string `json:"code" description:"第一次获取时需要传入兑换码"`
+	refresh bool
+	r       rsys
+}
+
+//授权
+type authBase struct {
+	Id      string
 	Token   string
-	ExAt    int64
-	ReToken string
+	ExAt    int64  //token失效日期
+	ReToken string //refresh_token
+	MchId   string
+	Type    string
+}
+type Auth struct {
+	Id    string
+	MchId string
+	Type  string
+}
+type AuthResult struct {
+	Data       Auth
+	SourceData string
+	Code       int
+}
+
+//账户
+type User struct {
+	Id     string
+	UserId string //外部用户id
+	MchId  string //第三方id
+	Status Status
+	Amount int64 //账户余额
+	Type   string
 }
 
 //用户返回
-type UserResult struct {
+type AccountResult struct {
 	Data       User
 	SourceData string
 	Code       int
+}
+
+//用户授权
+type AccountAuth struct {
+	UserId string
+	MchId  string
+	Type   string
 }
 
 //通用返回
