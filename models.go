@@ -56,32 +56,32 @@ type rsys struct {
 
 //条码支付请求
 type BarCodePayRequest struct {
-	OutTradeId string      `json:"out_trade_id" description:"商户交易ID 唯一"`
-	TradeName  string      `json:"trade_name" description:"名称"`
-	Amount     int64       `json:"amount" description:"交易总额,单位分"`
-	ItemDes    interface{} `json:"item_des" description:"商品表述"`
-	AuthCode   string      `json:"auth_code" description:"授权码"`
-	UserId     string      `json:"userid" description:"收款方对应的userid"`
-	ShopId     string      `json:"shopid" description:"店铺ID"`
+	OutTradeId string //商户交易ID 唯一
+	TradeName  string //名称
+	Amount     int64  //交易总额,单位分
+	ItemDes    string //商品表述
+	AuthCode   string //授权码
+	UserId     string //收款方对应的userid
+	ShopId     string //店铺ID
 	r          rsys
 }
 
 //网页支付请求参数
 type WapPayRequest struct {
-	ReturnUrl  string      //回调地址,非异步通知地址
-	OutTradeId string      //商户交易ID 唯一
-	TradeName  string      //名称
-	Amount     int64       //交易总额,单位分
-	ItemDes    interface{} //商品表述
-	ShopId     string      //店铺ID
-	Ex         string      //共用回传参数
+	ReturnUrl  string //回调地址,非异步通知地址
+	OutTradeId string //商户交易ID 唯一
+	TradeName  string //名称
+	Amount     int64  //交易总额,单位分
+	ItemDes    string //商品表述
+	ShopId     string //店铺ID
+	Ex         string //共用回传参数
 }
 
 //支付单详情
 type TradeRequest struct {
-	OutTradeId string `json:"out_trade_id" description:"交易ID"`
-	TradeId    string `description:"第三方交易ID "`
-	UserId     string `json:"userid" description:"权限对应的UserId"`
+	OutTradeId string //交易ID
+	TradeId    string //第三方交易ID
+	UserId     string //权限对应的UserId
 	r          rsys
 }
 
@@ -121,7 +121,7 @@ type RefundRequest struct {
 
 //刷新token
 type Token struct {
-	Code    string `json:"code" description:"第一次获取时需要传入兑换码"`
+	Code    string //获取时需要传入兑换码"`
 	refresh bool
 	r       rsys
 }
