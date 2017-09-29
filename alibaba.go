@@ -18,11 +18,12 @@ var (
 )
 
 const (
-	FC_ALIPAY_BARCODEPAY string = "AliPay.BarCodePay" //支付宝条码支付
-	FC_ALIPAY_CANCEL     string = "AliPay.Cancel"     //支付宝取消交易
-	FC_ALIPAY_AUTH       string = "AliPay.Auth"       //支付宝授权
-	FC_ALIPAY_REFUND     string = "AliPay.Refund"     //支付宝退款
-	FC_ALIPAY_TRADEINFO  string = "AliPay.TradeInfo"  //支付宝订单详情
+	FC_ALIPAY_BARCODEPAY     string = "AliPay.BarCodePay"    //支付宝条码支付
+	FC_ALIPAY_CANCEL         string = "AliPay.Cancel"        //支付宝取消交易
+	FC_ALIPAY_AUTH           string = "AliPay.Auth"          //支付宝授权
+	FC_ALIPAY_REFUND         string = "AliPay.Refund"        //支付宝退款
+	FC_ALIPAY_TRADEINFO      string = "AliPay.TradeInfo"     //支付宝订单详情
+	FC_ALIPAY_WAPTRADEPARAMS string = "AliPay.WapPayRequest" //网站支付参数组装
 )
 
 type AliPayInit struct {
@@ -461,6 +462,30 @@ func (A *AliPay) Auth(request *Token, resp *AuthResult) error {
 			return nil
 		}
 	}
+	return nil
+}
+
+//网页支付
+//使用应用自授权，非子商户模式
+//DOC:https://docs.open.alipay.com/203/107090/
+//本接口只负责数据组装，发起请求应由对应客户端发起
+func (A *AliPay) WapTradeParams(request *WapPayRequest, resp *Response) error {
+	params := map[string]interface{}{
+		"body":            request.ItemDes,
+		"subject":         request.TradeName,
+		"out_trade_no":    request.OutTradeId,
+		"total_amount":    float64(request.Amount) / 100.0,
+		"product_code":    "QUICK_WAP_WAY",
+		"store_id":        request.ShopId,
+		"passback_params": request.Ex,
+	}
+	sysParams := A.sysParams()
+	sysParams["method"] = "alipay.open.auth.token.app"
+	sysParams["biz_content"] = string(jsonEncode(params))
+	sysParams["return_url"] = request.ReturnUrl
+	/*sysParams["notify_url"] = request.ReturnUrl*/
+	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
+	resp.SourceData = httpBuildQuery(sysParams)
 	return nil
 }
 

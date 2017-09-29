@@ -31,16 +31,16 @@ const (
 	UserErrNotFount = 6603 //账户不存在
 
 	TradeStatusWaitPay Status = 0  //未支付
-	TradeStatusClose          = -1 //取消/退款
-	TradeStatusRefund         = -2 //取消/退款
-	TradeStatusSucc           = 1  //成功结束
+	TradeStatusClose   Status = -1 //取消/退款
+	TradeStatusRefund  Status = -2 //取消/退款
+	TradeStatusSucc    Status = 1  //成功结束
 
 	UserWaitVerify Status = 0  //等待审核或等待授权签约
-	UserFreeze            = -1 //冻结
-	UserSucc              = 1  //正常
+	UserFreeze     Status = -1 //冻结
+	UserSucc       Status = 1  //正常
 
 	AuthStatusSucc       Status = 1
-	AuthStatusWaitSigned        = 0
+	AuthStatusWaitSigned Status = 0
 )
 
 const (
@@ -64,6 +64,17 @@ type BarCodePayRequest struct {
 	UserId     string      `json:"userid" description:"收款方对应的userid"`
 	ShopId     string      `json:"shopid" description:"店铺ID"`
 	r          rsys
+}
+
+//网页支付请求参数
+type WapPayRequest struct {
+	ReturnUrl  string      //回调地址,非异步通知地址
+	OutTradeId string      //商户交易ID 唯一
+	TradeName  string      //名称
+	Amount     int64       //交易总额,单位分
+	ItemDes    interface{} //商品表述
+	ShopId     string      //店铺ID
+	Ex         string      //共用回传参数
 }
 
 //支付单详情
