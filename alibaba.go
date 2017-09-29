@@ -469,7 +469,7 @@ func (A *AliPay) Auth(request *Token, resp *AuthResult) error {
 //使用应用自授权，非子商户模式
 //DOC:https://docs.open.alipay.com/203/107090/
 //本接口只负责数据组装，发起请求应由对应客户端发起
-func (A *AliPay) WapTradeParams(request *WapPayRequest, resp *Response) error {
+func (A *AliPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 	params := map[string]interface{}{
 		"body":            request.ItemDes,
 		"subject":         request.TradeName,
