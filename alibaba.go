@@ -18,12 +18,12 @@ var (
 )
 
 const (
-	FC_ALIPAY_BARCODEPAY     string = "AliPay.BarCodePay"    //支付宝条码支付
-	FC_ALIPAY_CANCEL         string = "AliPay.Cancel"        //支付宝取消交易
-	FC_ALIPAY_AUTH           string = "AliPay.Auth"          //支付宝授权
-	FC_ALIPAY_REFUND         string = "AliPay.Refund"        //支付宝退款
-	FC_ALIPAY_TRADEINFO      string = "AliPay.TradeInfo"     //支付宝订单详情
-	FC_ALIPAY_WAPTRADEPARAMS string = "AliPay.WapPayRequest" //网站支付参数组装
+	FC_ALIPAY_BARCODEPAY     string = "AliPay.BarCodePay"   //支付宝条码支付
+	FC_ALIPAY_CANCEL         string = "AliPay.Cancel"       //支付宝取消交易
+	FC_ALIPAY_AUTH           string = "AliPay.Auth"         //支付宝授权
+	FC_ALIPAY_REFUND         string = "AliPay.Refund"       //支付宝退款
+	FC_ALIPAY_TRADEINFO      string = "AliPay.TradeInfo"    //支付宝订单详情
+	FC_ALIPAY_WAPTRADEPARAMS string = "AliPay.WapPayParams" //网站支付参数组装
 )
 
 type AliPayInit struct {
