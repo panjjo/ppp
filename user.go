@@ -5,6 +5,7 @@ import "gopkg.in/mgo.v2/bson"
 const (
 	FC_ACCOUNT_REGIST string = "Account.Regist"
 	FC_ACCOUNT_AUTH   string = "Account.Auth"
+	FC_ACCOUNT_UNAUTH string = "Account.UnAuth"
 )
 
 type Account struct {
@@ -66,7 +67,7 @@ func (A *Account) Auth(request *AccountAuth, resp *Response) error {
 }
 
 //账户解绑
-func (A *Account) UnBind(request *User, resp *Response) error {
+func (A *Account) UnAuth(request *User, resp *Response) error {
 	user := getUser(request.UserId, request.Type)
 	if user.UserId == "" {
 		resp.Code = UserErrNotFount
