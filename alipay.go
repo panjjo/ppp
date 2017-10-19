@@ -1,7 +1,6 @@
 package ppp
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -138,7 +137,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 				//循环
 				//获取一次一直到成功
 				for getNowSec()-request.r.time < 30 {
-					A.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &trade)
+					A.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r, UserId: request.UserId}, &trade)
 					if trade.Code == 0 && trade.Data.Status == TradeStatusSucc {
 						//订单存在且支付
 						//取消撤销
@@ -177,12 +176,13 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 			Status:     TradeStatusSucc,
 			TradeId:    tmpresult["trade_no"].(string),
 		}
+		resp.Code = 0
 		saveTrade(resp.Data)
 	}
 	//撤销
 	if needCancel {
 		response := Response{}
-		A.Cancel(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &response)
+		A.Cancel(&TradeRequest{OutTradeId: request.OutTradeId, UserId: request.UserId}, &response)
 	}
 	return nil
 }
@@ -480,25 +480,59 @@ func (A *AliPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 		"passback_params": request.Ex,
 	}
 	sysParams := A.sysParams()
-	sysParams["method"] = "alipay.open.auth.token.app"
+	sysParams["method"] = "alipay.trade.wap.pay"
 	sysParams["biz_content"] = string(jsonEncode(params))
 	sysParams["return_url"] = request.ReturnUrl
-	/*sysParams["notify_url"] = request.ReturnUrl*/
+	sysParams["notify_url"] = "https://consumer.93521.com/api_test/public/onpaycompleted"
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	resp.SourceData = httpBuildQuery(sysParams)
+	//save tradeinfo
+	saveTrade(Trade{
+		OutTradeId: request.OutTradeId,
+		Status:     0,
+		Type:       1,
+		Amount:     request.Amount,
+		Source:     PAYTYPE_ALIPAY,
+		UpTime:     getNowSec(),
+		Ex:         request.Ex,
+		Id:         randomTimeString(), // PPPID
+	})
+	return nil
+}
+
+//异步回调
+//wap支付的异步回调
+//request 接收到的支付宝回调所有参数
+func (A *AliPay) CallBack(request map[string]string, resp *Response) error {
+	sign, ok := request["sign"]
+	if !ok {
+		resp.Code = SysErrParams
+		return nil
+	}
+	sign_type, ok := request["sign_type"]
+	if !ok || sign_type != "RSA2" {
+		resp.Code = SysErrParams
+		return nil
+	}
+	delete(request, "sign")
+	delete(request, "sign_type")
+	err := AliPayRSAVerify(request, sign)
+	if err != nil {
+		resp.Code = SysErrVerify
+		resp.SourceData = err.Error()
+		return nil
+	}
+	//更新trade
 	return nil
 }
 
 func (A *AliPay) request(url string, okey string) (interface{}, int, error) {
-	fmt.Println(url)
 	body, err := getRequest(url)
 	if err != nil {
 		//网络发起请求失败
 		//需重试
-		fmt.Println(err)
 		return nil, -1, err
 	}
-	fmt.Println(string(body))
 	result := map[string]interface{}{}
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, 0, err

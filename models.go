@@ -11,6 +11,7 @@ const (
 	AuthErrNotSigned = 9002 //未签约
 
 	SysErrParams = 1001 //参数错误
+	SysErrVerify = 1002 //验签错误
 
 	PayErr      = 2000 //支付失败
 	PayErrPayed = 2001 //重复支付
@@ -28,7 +29,7 @@ const (
 
 	UserErrBalance  = 6001 //账户余额错误
 	UserErrRegisted = 6002 //账户已存在
-	UserErrNotFount = 6603 //账户不存在
+	UserErrNotFount = 6003 //账户不存在
 
 	TradeStatusWaitPay Status = 0  //未支付
 	TradeStatusClose   Status = -1 //取消/退款

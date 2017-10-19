@@ -11,9 +11,10 @@ type Account struct {
 }
 
 //账户注册
-//如果传入macid表示直接绑定授权帐号
+//如果传入mchid表示直接绑定授权帐号
 func (A *Account) Regist(request *User, resp *AccountResult) error {
-	if getUser(request.UserId, request.Type).UserId != "" {
+	user := getUser(request.UserId, request.Type)
+	if user.MchId == request.MchId {
 		resp.Code = UserErrRegisted
 		return nil
 	}
@@ -32,8 +33,14 @@ func (A *Account) Regist(request *User, resp *AccountResult) error {
 		}
 		request.Status = 1
 	}
-	request.Id = randomString(32)
-	saveUser(*request)
+	if user.UserId != "" {
+		//更新授权绑定
+		updateUser(user.UserId, user.Type, bson.M{"$set": bson.M{"mchid": request.MchId}})
+	} else {
+		//新增
+		request.Id = randomString(32)
+		saveUser(*request)
+	}
 	resp.Data = *request
 	return nil
 }
@@ -55,5 +62,16 @@ func (A *Account) Auth(request *AccountAuth, resp *Response) error {
 	user.MchId = request.MchId
 	user.Status = auth.Status
 	updateUser(user.UserId, user.Type, bson.M{"$set": user})
+	return nil
+}
+
+//账户解绑
+func (A *Account) UnBind(request *User, resp *Response) error {
+	user := getUser(request.UserId, request.Type)
+	if user.UserId == "" {
+		resp.Code = UserErrNotFount
+		return nil
+	}
+	updateUser(request.UserId, request.Type, bson.M{"$set": bson.M{"mchid": "", "status": UserWaitVerify}})
 	return nil
 }

@@ -59,6 +59,11 @@ func saveTrade(trade Trade) error {
 	defer session.Close()
 	return session.DB().C("trade").Insert(trade)
 }
+func updateTrade(query, update bson.M) error {
+	session := DBPool.Get()
+	defer session.Close()
+	return session.DB().C("trade").Update(query, update)
+}
 
 func listTrade(request *ListRequest) ([]Trade, error) {
 	session := DBPool.Get()
