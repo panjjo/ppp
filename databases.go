@@ -61,6 +61,15 @@ func saveToken(auth authBase) error {
 	return session.DB().C("auth").Insert(auth)
 }
 
+//获取交易
+func getTrade(q bson.M) Trade {
+	session := DBPool.Get()
+	defer session.Close()
+	trade := Trade{}
+	session.DB().C("trade").Find(q).One(&trade)
+	return trade
+}
+
 //新增交易
 func saveTrade(trade Trade) error {
 	session := DBPool.Get()

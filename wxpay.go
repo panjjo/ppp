@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/xml"
 	"time"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -16,6 +18,7 @@ const (
 	FC_WXPAY_BARCODEPAY string = "WXPay.BarCodePay"     //条码支付
 	FC_WXPAY_CANCEL     string = "WXPay.Cancel"         //取消交易
 	FC_WXPAY_REFUND     string = "WXPay.Refund"         //退款
+	FC_WXPAY_AUTHSIGNED string = "WXPay.AuthSigned"     //签约接口
 	FC_WXPAY_TRADEINFO  string = "WXPay.TradeInfo"      //订单详情
 	FC_WXPAY_SBKEY      string = "WXPay.SandboxSignKey" //订单详情
 )
@@ -315,6 +318,10 @@ func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
 		resp.SourceData = trade.SourceData
 		return nil
 	}
+	if trade.Data.Id == "" {
+		resp.Code = TradeErrNotFound
+		return nil
+	}
 	params.TradeId = trade.Data.TradeId
 	params.TotalFee = trade.Data.Amount
 
@@ -468,6 +475,14 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		resp.Code = AuthErr
 		return nil
 	}
+	q := bson.M{"type": PAYTYPE_WXPAY}
+	if request.TradeId != "" {
+		q["tradeid"] = request.TradeId
+	}
+	if request.OutTradeId != "" {
+		q["outtradeid"] = request.OutTradeId
+	}
+	trade := getTrade(q)
 	params := wxTradeInfoRequest{
 		AppId:      wxPayAppId,
 		MchId:      wxPayMchId,
@@ -504,13 +519,17 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 			}
 		} else {
 			//成功返回
-			trade := wxTradeResult{}
-			xml.Unmarshal(result.([]byte), &trade)
+			tmpresult := wxTradeResult{}
+			xml.Unmarshal(result.([]byte), &tmpresult)
 			resp.Data = Trade{
-				OutTradeId: trade.OutTradeId,
-				TradeId:    trade.TradeId,
-				Status:     wxTradeStatusMap[trade.Status],
-				Amount:     trade.Amount,
+				OutTradeId: tmpresult.OutTradeId,
+				TradeId:    tmpresult.TradeId,
+				Status:     wxTradeStatusMap[tmpresult.Status],
+				Amount:     tmpresult.Amount,
+				Id:         trade.Id,
+			}
+			if trade.Id != "" {
+				updateTrade(bson.M{"id": trade.Id}, bson.M{"$set": bson.M{"status": resp.Data.Status, "uptime": getNowSec()}})
 			}
 			return nil
 		}

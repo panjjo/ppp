@@ -23,7 +23,7 @@ const (
 	FC_ALIPAY_AUTH           string = "AliPay.Auth"         //支付宝授权
 	FC_ALIPAY_REFUND         string = "AliPay.Refund"       //支付宝退款
 	FC_ALIPAY_TRADEINFO      string = "AliPay.TradeInfo"    //支付宝订单详情
-	FC_ALIPAY_AUTHSIGNED     string = "AliPay.AuthSigned"   //签约借口
+	FC_ALIPAY_AUTHSIGNED     string = "AliPay.AuthSigned"   //签约接口
 	FC_ALIPAY_WAPTRADEPARAMS string = "AliPay.WapPayParams" //网站支付参数组装
 )
 
@@ -222,6 +222,10 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 		resp.SourceData = trade.SourceData
 		return nil
 	}
+	if trade.Data.Id == "" {
+		resp.Code = TradeErrNotFound
+		return nil
+	}
 	params := map[string]interface{}{
 		"out_trade_no":   request.OutTradeId,
 		"trade_no":       request.TradeId,
@@ -357,6 +361,18 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		resp.Code = AuthErrNotSigned
 		return nil
 	}
+	q := bson.M{"type": PAYTYPE_ALIPAY}
+	if request.OutTradeId != "" {
+		q["outtradeid"] = request.OutTradeId
+	}
+	if request.TradeId != "" {
+		q["tradeid"] = request.TradeId
+	}
+	trade := getTrade(q)
+	/*if trade.Id == "" {
+		resp.Code = TradeErrNotFound
+		return nil
+	}*/
 	params := map[string]interface{}{
 		"out_trade_no": request.OutTradeId,
 		"trade_no":     request.TradeId,
@@ -397,6 +413,11 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 				TradeId:    tmpresult["trade_no"].(string),
 				Status:     aliTradeStatusMap[tmpresult["trade_status"].(string)],
 				Amount:     int64(amount * 100),
+				Id:         trade.Id,
+			}
+			//更新数据
+			if trade.Id != "" {
+				updateTrade(bson.M{"id": trade.Id}, bson.M{"$set": bson.M{"status": resp.Data.Status, "uptime": getNowSec()}})
 			}
 			return nil
 		}
