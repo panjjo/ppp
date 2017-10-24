@@ -32,7 +32,7 @@ func (A *Account) Regist(request *User, resp *AccountResult) error {
 			resp.Code = AuthErr
 			return nil
 		}
-		request.Status = 1
+		request.Status = UserSucc
 	}
 	if user.UserId != "" {
 		//更新授权绑定
@@ -61,12 +61,14 @@ func (A *Account) Auth(request *AccountAuth, resp *Response) error {
 		return nil
 	}
 	user.MchId = request.MchId
+	//签约成功后更新
 	user.Status = auth.Status
+	user.Status = UserSucc
 	updateUser(user.UserId, user.Type, bson.M{"$set": user})
 	return nil
 }
 
-//账户解绑
+//解绑授权
 func (A *Account) UnAuth(request *User, resp *Response) error {
 	user := getUser(request.UserId, request.Type)
 	if user.UserId == "" {

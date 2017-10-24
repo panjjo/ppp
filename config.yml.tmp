@@ -6,8 +6,8 @@ alipay:
   serviceid: 2088102169330843 #收佣支付宝商户ID
 wxpay:
   status: on
-  mchid: 1328129083 #微信支付的商户号
-  appid: gd_132o348434 #公众号ID
+  mchid: xxxxxxx#微信支付的商户号
+  appid: xxxxxxxx#公众号ID
   certpath: cert/weixinpay
   url: https://api.mch.weixin.qq.com
   key: FV2l232DIEKVJFRS32 #微信支付apikey

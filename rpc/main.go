@@ -95,5 +95,8 @@ func initWXPay() {
 	if wx.MchId, err = config.GetString("mchid"); err != nil {
 		log.Fatal("Init Error:Not Found wxpay:mchid")
 	}
+	if wx.ApiKey, err = config.GetString("key"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:apikey")
+	}
 	wx.Init()
 }

@@ -1,6 +1,7 @@
 package ppp
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -22,6 +23,7 @@ const (
 	FC_ALIPAY_AUTH           string = "AliPay.Auth"         //支付宝授权
 	FC_ALIPAY_REFUND         string = "AliPay.Refund"       //支付宝退款
 	FC_ALIPAY_TRADEINFO      string = "AliPay.TradeInfo"    //支付宝订单详情
+	FC_ALIPAY_AUTHSIGNED     string = "AliPay.AuthSigned"   //签约借口
 	FC_ALIPAY_WAPTRADEPARAMS string = "AliPay.WapPayParams" //网站支付参数组装
 )
 
@@ -43,9 +45,17 @@ func (a *AliPayInit) Init() {
 type AliPay struct {
 }
 
-// 获取用户信息
-// DOC:https://docs.open.alipay.com/api_2/alipay.user.info.share
-func (A *AliPay) UserInfo(userid string, resp *Response) error {
+//支付宝签约通过后调用
+//支付宝做更新签约状态，签约支付宝账号
+func (A *AliPay) AuthSigned(request *AuthRequest, resp *Response) error {
+	auth := getToken(request.MchId, PAYTYPE_ALIPAY)
+	if auth.Id == "" {
+		resp.Code = AuthErr
+		return nil
+	}
+	auth.Status = request.Status
+	updateToken(auth.MchId, PAYTYPE_ALIPAY, bson.M{"$set": bson.M{"status": request.Status, "account": request.Account}})
+	updateUserMulti(bson.M{"mchid": auth.MchId, "type": PAYTYPE_ALIPAY, "status": bson.M{"$ne": UserFreeze}}, bson.M{"$set": bson.M{"status": request.Status}})
 	return nil
 }
 
@@ -77,6 +87,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 	sysParams["biz_content"] = string(jsonEncode(params))
 	//设置子商户数据
 	user := getUser(request.UserId, PAYTYPE_ALIPAY)
+	fmt.Printf("%+v,%v,\n", user, request.UserId)
 	if user.Status != UserSucc {
 		resp.Code = AuthErr
 		return nil
@@ -522,7 +533,7 @@ func (A *AliPay) CallBack(request map[string]string, resp *Response) error {
 		resp.SourceData = err.Error()
 		return nil
 	}
-	//更新trade
+	//TODO:更新trade
 	return nil
 }
 
@@ -533,6 +544,7 @@ func (A *AliPay) request(url string, okey string) (interface{}, int, error) {
 		//需重试
 		return nil, -1, err
 	}
+	fmt.Println(string(body))
 	result := map[string]interface{}{}
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, 0, err

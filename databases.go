@@ -30,6 +30,14 @@ func updateUser(userid string, t string, update bson.M) error {
 	return session.DB().C("user").Update(bson.M{"userid": userid, "type": t}, update)
 }
 
+//更新用户信息
+func updateUserMulti(query, update bson.M) error {
+	session := DBPool.Get()
+	defer session.Close()
+	_, err := session.DB().C("user").UpdateAll(query, update)
+	return err
+}
+
 //获取授权
 func getToken(mchid, t string) authBase {
 	session := DBPool.Get()

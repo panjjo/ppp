@@ -111,18 +111,20 @@ type TradeResult struct {
 
 //退款请求
 type RefundRequest struct {
-	Memo       string
-	Amount     int64
-	OutTradeId string
-	TradeId    string
-	RefundId   string
-	UserId     string
-	r          rsys
+	Memo        string
+	Amount      int64
+	OutTradeId  string
+	TradeId     string
+	RefundId    string
+	OutRefundId string
+	UserId      string
+	r           rsys
 }
 
 //刷新token
 type Token struct {
 	Code    string //获取时需要传入兑换码"`
+	MchId   string //微信使
 	refresh bool
 	r       rsys
 }
@@ -136,12 +138,20 @@ type authBase struct {
 	Status  Status
 	MchId   string
 	Type    string
+	Account string
 }
+
 type Auth struct {
 	Id     string
 	MchId  string
 	Type   string
 	Status Status
+}
+type AuthRequest struct {
+	Id      string
+	MchId   string
+	Status  Status
+	Account string
 }
 type AuthResult struct {
 	Data       Auth
