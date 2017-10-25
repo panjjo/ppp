@@ -77,7 +77,7 @@ func (W *WXPay) SandboxSignKey(mchid string, resp *Response) error {
 		xml.Unmarshal(result.([]byte), &tmp)
 		resp.SourceData = tmp.SandboxSignKey
 	} else {
-		resp.Code = 1002
+		resp.Code = SysErrVerify
 		resp.SourceData = err.Error()
 	}
 	return nil
@@ -253,20 +253,16 @@ func (W *WXPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error 
 type wxRefundRequest struct {
 	XMLName xml.Name `xml:"xml"`
 
-	// required
-	AppId          string `xml:"appid"`            // 公众账号ID
-	MchId          string `xml:"mch_id"`           // 商户号
-	SubMchId       string `xml:"sub_mch_id"`       // 子商户ID
-	NonceStr       string `xml:"nonce_str"`        // 随机字符串
-	Body           string `xml:"body"`             // 商品描述
-	OutTradeId     string `xml:"out_trade_no"`     // 商户订单号
-	TotalFee       int64  `xml:"total_fee"`        // 订单金额
-	AuthCode       string `xml:"auth_code"`        // 授权码
-	SpbillCreateIp string `xml:"spbill_create_ip"` // 终端IP
-	Sign           string `xml:"sign"`             // 签名
+	AppId    string `xml:"appid"`      // 公众账号ID
+	MchId    string `xml:"mch_id"`     // 商户号
+	SubMchId string `xml:"sub_mch_id"` // 子商户ID
+	NonceStr string `xml:"nonce_str"`  // 随机字符串
 
-	//refund
-	RefundId     string `xml:"out_refund_no"`  //商户退款单号
+	OutTradeId string `xml:"out_trade_no"` // 商户订单号
+	Amount     int64  `xml:"total_fee"`    // 订单金额
+	Sign       string `xml:"sign"`         // 签名
+
+	RefundId     string `xml:"refund_id"`      //商户退款单号
 	RefundAmount int64  `xml:"refund_fee"`     // 退款金额
 	RefundDesc   string `xml:"refund_desc"`    //退款备注
 	TradeId      string `xml:"transaction_id"` //微信订单号
@@ -301,12 +297,17 @@ func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
+	if request.OutRefundId == "" {
+		resp.Code = SysErrParams
+		resp.SourceData = "out_refund_id"
+		return nil
+	}
 	params := wxRefundRequest{
-		AppId:        wxPayAppId,
-		MchId:        wxPayMchId,
-		NonceStr:     randomString(32),
-		OutTradeId:   request.OutTradeId,
-		RefundId:     request.RefundId,
+		AppId:      wxPayAppId,
+		MchId:      wxPayMchId,
+		NonceStr:   randomString(32),
+		OutTradeId: request.OutTradeId,
+		/*RefundId:     request.RefundId,*/
 		OutRefundId:  request.OutRefundId,
 		RefundAmount: request.Amount,
 		RefundDesc:   request.Memo,
@@ -323,14 +324,14 @@ func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
 		return nil
 	}
 	params.TradeId = trade.Data.TradeId
-	params.TotalFee = trade.Data.Amount
+	params.Amount = trade.Data.Amount
 
 	user := getUser(request.UserId, PAYTYPE_WXPAY)
 	if user.UserId == "" {
 		resp.Code = AuthErr
 		return nil
 	}
-	params.SubMchId = user.UserId
+	params.SubMchId = user.MchId
 	params.Sign = WXPaySigner(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	if err != nil {
@@ -341,7 +342,7 @@ func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
 	var result interface{}
 	var next int
 	for getNowSec()-request.r.time < 30 {
-		result, next, err = W.requestTls(wxPayUrl+"secapi/pay/refund", postBody)
+		result, next, err = W.requestTls(wxPayUrl+"/secapi/pay/refund", postBody)
 		resp.SourceData = string(jsonEncode(result))
 		if err != nil {
 			if v, ok := aliErrMap[err.Error()]; ok {
@@ -475,7 +476,7 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		resp.Code = AuthErr
 		return nil
 	}
-	q := bson.M{"type": PAYTYPE_WXPAY}
+	q := bson.M{"source": PAYTYPE_WXPAY}
 	if request.TradeId != "" {
 		q["tradeid"] = request.TradeId
 	}

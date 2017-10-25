@@ -15,7 +15,7 @@ const (
 
 	PayErr      = 2000 //支付失败
 	PayErrPayed = 2001 //重复支付
-	PayErrCode  = 2001 //支付码无效
+	PayErrCode  = 2002 //支付码无效
 
 	TradeErr         = 3000 //交易错误
 	TradeErrNotFound = 3001 //交易不存在

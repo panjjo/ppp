@@ -361,7 +361,7 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		resp.Code = AuthErrNotSigned
 		return nil
 	}
-	q := bson.M{"type": PAYTYPE_ALIPAY}
+	q := bson.M{"source": PAYTYPE_ALIPAY}
 	if request.OutTradeId != "" {
 		q["outtradeid"] = request.OutTradeId
 	}

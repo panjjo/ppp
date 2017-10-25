@@ -17,8 +17,8 @@ func main() {
 		log.Fatal("dialing:", err)
 	}
 	/*alipay()*/
-	/*wxpay()*/
-	wxsandbox()
+	wxpay()
+	/*wxsandbox()*/
 }
 func wxsandbox() {
 	tradePayResult := ppp.Response{}
@@ -32,10 +32,10 @@ func wxsandbox() {
 func wxpay() {
 	tradePayResult := ppp.TradeResult{}
 	err = client.Call(ppp.FC_WXPAY_BARCODEPAY, ppp.BarCodePayRequest{
-		OutTradeId: "20774752413167",
+		OutTradeId: "20774752413168",
 		TradeName:  "Craig",
 		ItemDes:    "快速收银,临时商品",
-		AuthCode:   "135131416592685091",
+		AuthCode:   "135215036461711497",
 		Amount:     1,
 		UserId:     "120acd7a9d12"}, &tradePayResult)
 	if err != nil {
