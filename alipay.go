@@ -1,7 +1,6 @@
 package ppp
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -15,6 +14,7 @@ var (
 	aliPayUrl               string           //alipay的地址
 	aliPayServiceProviderId string           //收佣商户号
 	aliPayAppId             string           //应用ID
+	aliPayNotifyUrl         string           //异步通知地址
 )
 
 const (
@@ -32,12 +32,14 @@ type AliPayInit struct {
 	Url               string
 	ServiceProviderId string
 	ConfigPath        string
+	NotifyUrl         string
 }
 
 func (a *AliPayInit) Init() {
 	aliPayUrl = a.Url
 	aliPayAppId = a.AppId
 	aliPayServiceProviderId = a.ServiceProviderId
+	aliPayNotifyUrl = a.NotifyUrl
 	loadAliPayCertKey(a.ConfigPath)
 }
 
@@ -53,9 +55,17 @@ func (A *AliPay) AuthSigned(request *AuthRequest, resp *Response) error {
 		resp.Code = AuthErr
 		return nil
 	}
-	auth.Status = request.Status
-	updateToken(auth.MchId, PAYTYPE_ALIPAY, bson.M{"$set": bson.M{"status": request.Status, "account": request.Account}})
-	updateUserMulti(bson.M{"mchid": auth.MchId, "type": PAYTYPE_ALIPAY, "status": bson.M{"$ne": UserFreeze}}, bson.M{"$set": bson.M{"status": request.Status}})
+	updateToken(auth.MchId, PAYTYPE_ALIPAY, bson.M{"$set": bson.M{"status": AuthStatusSucc, "account": request.Account}})
+	updateUserMulti(bson.M{"mchid": auth.MchId, "type": PAYTYPE_ALIPAY, "status": bson.M{"$ne": UserFreeze}}, bson.M{"$set": bson.M{"status": UserSucc}})
+	//验证权限是否真实开通
+	trade := TradeResult{}
+	A.TradeInfo(&TradeRequest{r: rsys{mchid: auth.MchId}, TradeId: "test123"}, &trade)
+	if trade.Code == AuthErr {
+		//撤销
+		updateToken(auth.MchId, PAYTYPE_ALIPAY, bson.M{"$set": bson.M{"status": AuthStatusWaitSigned, "account": request.Account}})
+		updateUserMulti(bson.M{"mchid": auth.MchId, "type": PAYTYPE_ALIPAY, "status": bson.M{"$ne": UserFreeze}}, bson.M{"$set": bson.M{"status": UserWaitVerify}})
+		resp.Code = AuthErr
+	}
 	return nil
 }
 
@@ -86,18 +96,12 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 	sysParams["method"] = "alipay.trade.pay"
 	sysParams["biz_content"] = string(jsonEncode(params))
 	//设置子商户数据
-	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	fmt.Printf("%+v,%v,\n", user, request.UserId)
-	if user.Status != UserSucc {
-		resp.Code = AuthErr
-		return nil
-	}
-	//获取授权
-	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	auth := A.token(request.UserId, request.r.mchid)
 	if auth.Status != AuthStatusSucc {
 		resp.Code = AuthErrNotSigned
 		return nil
 	}
+	request.r.mchid = auth.MchId
 	sysParams["app_auth_token"] = auth.Token
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
 	//请求并除错
@@ -148,7 +152,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 				//循环
 				//获取一次一直到成功
 				for getNowSec()-request.r.time < 30 {
-					A.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r, UserId: request.UserId}, &trade)
+					A.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &trade)
 					if trade.Code == 0 && trade.Data.Status == TradeStatusSucc {
 						//订单存在且支付
 						//取消撤销
@@ -187,13 +191,13 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 			Status:     TradeStatusSucc,
 			TradeId:    tmpresult["trade_no"].(string),
 		}
-		resp.Code = 0
+		resp.Code = Succ
 		saveTrade(resp.Data)
 	}
 	//撤销
 	if needCancel {
 		response := Response{}
-		A.Cancel(&TradeRequest{OutTradeId: request.OutTradeId, UserId: request.UserId}, &response)
+		A.Cancel(&TradeRequest{OutTradeId: request.OutTradeId}, &response)
 	}
 	return nil
 }
@@ -204,19 +208,15 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	if user.Status != UserSucc {
-		resp.Code = AuthErr
-		return nil
-	}
 	//获取授权
-	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	auth := A.token(request.UserId, request.r.mchid)
 	if auth.Status != AuthStatusSucc {
 		resp.Code = AuthErrNotSigned
 		return nil
 	}
+	request.r.mchid = auth.MchId
 	trade := TradeResult{}
-	A.TradeInfo(&TradeRequest{r: request.r, UserId: request.UserId, OutTradeId: request.OutTradeId}, &trade)
+	A.TradeInfo(&TradeRequest{r: request.r, OutTradeId: request.OutTradeId}, &trade)
 	if trade.Code != 0 {
 		resp.Code = trade.Code
 		resp.SourceData = trade.SourceData
@@ -229,7 +229,7 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 	params := map[string]interface{}{
 		"out_trade_no":   request.OutTradeId,
 		"trade_no":       request.TradeId,
-		"out_request_no": request.RefundId,
+		"out_request_no": request.OutRefundId,
 		"refund_reason":  request.Memo,
 		"refund_amount":  float64(request.Amount) / 100.0,
 	}
@@ -292,17 +292,13 @@ func (A *AliPay) Cancel(request *TradeRequest, resp *Response) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	if user.Status != UserSucc {
-		resp.Code = AuthErr
-		return nil
-	}
 	//获取授权
-	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	auth := A.token(request.UserId, request.r.mchid)
 	if auth.Status != AuthStatusSucc {
 		resp.Code = AuthErrNotSigned
 		return nil
 	}
+	request.r.mchid = auth.MchId
 	params := map[string]interface{}{
 		"out_trade_no": request.OutTradeId,
 		"trade_no":     request.TradeId,
@@ -350,17 +346,13 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	user := getUser(request.UserId, PAYTYPE_ALIPAY)
-	if user.Status != UserSucc {
-		resp.Code = AuthErr
-		return nil
-	}
 	//获取授权
-	auth := getToken(user.MchId, PAYTYPE_ALIPAY)
+	auth := A.token(request.UserId, request.r.mchid)
 	if auth.Status != AuthStatusSucc {
 		resp.Code = AuthErrNotSigned
 		return nil
 	}
+	request.r.mchid = auth.MchId
 	q := bson.M{"source": PAYTYPE_ALIPAY}
 	if request.OutTradeId != "" {
 		q["outtradeid"] = request.OutTradeId
@@ -369,10 +361,6 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		q["tradeid"] = request.TradeId
 	}
 	trade := getTrade(q)
-	/*if trade.Id == "" {
-		resp.Code = TradeErrNotFound
-		return nil
-	}*/
 	params := map[string]interface{}{
 		"out_trade_no": request.OutTradeId,
 		"trade_no":     request.TradeId,
@@ -565,7 +553,6 @@ func (A *AliPay) request(url string, okey string) (interface{}, int, error) {
 		//需重试
 		return nil, -1, err
 	}
-	fmt.Println(string(body))
 	result := map[string]interface{}{}
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, 0, err
@@ -604,6 +591,18 @@ func (A *AliPay) errorCheck(data map[string]interface{}) (int, error) {
 	default:
 		return 0, newError(code + subCode)
 	}
+}
+
+func (a *AliPay) token(userid, mchid string) authBase {
+	auth := authBase{}
+	if mchid == "" {
+		user := getUser(userid, PAYTYPE_ALIPAY)
+		if user.Status != UserSucc {
+			return auth
+		}
+		mchid = user.MchId
+	}
+	return getToken(mchid, PAYTYPE_ALIPAY)
 }
 
 /*组装系统级请求参数*/

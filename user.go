@@ -1,6 +1,8 @@
 package ppp
 
-import "gopkg.in/mgo.v2/bson"
+import (
+	"gopkg.in/mgo.v2/bson"
+)
 
 const (
 	FC_ACCOUNT_REGIST string = "Account.Regist"

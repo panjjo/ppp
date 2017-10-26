@@ -16,10 +16,13 @@ func saveUser(user User) error {
 
 //获取用户信息
 func getUser(userid string, t string) User {
+	return getUserQuery(bson.M{"userid": userid, "type": t})
+}
+func getUserQuery(q bson.M) User {
 	session := DBPool.Get()
 	defer session.Close()
 	user := User{}
-	session.DB().C("user").Find(bson.M{"userid": userid, "type": t}).One(&user)
+	session.DB().C("user").Find(q).One(&user)
 	return user
 }
 
@@ -59,6 +62,13 @@ func saveToken(auth authBase) error {
 	session := DBPool.Get()
 	defer session.Close()
 	return session.DB().C("auth").Insert(auth)
+}
+
+//删除授权
+func deleteToken(mchid, t string) error {
+	session := DBPool.Get()
+	defer session.Close()
+	return session.DB().C("auth").Remove(bson.M{"mchid": mchid, "type": t})
 }
 
 //获取交易

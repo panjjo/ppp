@@ -7,6 +7,7 @@ import (
 type Status int
 
 const (
+	Succ             = 0    //成功
 	AuthErr          = 9001 //授权错误
 	AuthErrNotSigned = 9002 //未签约
 
@@ -53,6 +54,7 @@ const (
 type rsys struct {
 	retry int
 	time  int64
+	mchid string
 }
 
 //条码支付请求
@@ -76,6 +78,15 @@ type WapPayRequest struct {
 	ItemDes    string //商品表述
 	ShopId     string //店铺ID
 	Ex         string //共用回传参数
+	UserId     string
+	IPAddr     string
+	Scene      Scene //场景
+}
+
+type Scene struct {
+	//详情看wxpay的统一下单中的scene
+	Url  string //请求地址
+	Name string //请求名称
 }
 
 //支付单详情

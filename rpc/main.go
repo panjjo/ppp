@@ -74,11 +74,15 @@ func initAliPay() {
 	}
 	var err error
 	if ali.AppId, err = config.GetString("appid"); err != nil {
-		log.Fatal("Init Error:Not Found wxpay:appid")
+		log.Fatal("Init Error:Not Found alipay:appid")
 	}
 	if ali.Url, err = config.GetString("url"); err != nil {
-		log.Fatal("Init Error:Not Found wxpay:url")
+		log.Fatal("Init Error:Not Found alipay:url")
 	}
+	if ali.NotifyUrl, err = config.GetString("notify"); err != nil {
+		log.Fatal("Init Error:Not Found alipay:notify_url")
+	}
+
 	ali.Init()
 }
 func initWXPay() {
@@ -97,6 +101,9 @@ func initWXPay() {
 	}
 	if wx.ApiKey, err = config.GetString("key"); err != nil {
 		log.Fatal("Init Error:Not Found wxpay:apikey")
+	}
+	if wx.NotifyUrl, err = config.GetString("notify"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:notify_url")
 	}
 	wx.Init()
 }
