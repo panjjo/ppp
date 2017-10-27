@@ -66,6 +66,7 @@ type BarCodePayRequest struct {
 	AuthCode   string //授权码
 	UserId     string //收款方对应的userid
 	ShopId     string //店铺ID
+	IPAddr     string
 	r          rsys
 }
 
@@ -150,6 +151,7 @@ type authBase struct {
 	MchId   string
 	Type    string
 	Account string
+	AppId   string //微信子商户appid
 }
 
 type Auth struct {
@@ -163,6 +165,7 @@ type AuthRequest struct {
 	MchId   string
 	Status  Status
 	Account string
+	AppId   string //微信子商户公众号Appid
 }
 type AuthResult struct {
 	Data       Auth

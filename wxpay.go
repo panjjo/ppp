@@ -94,6 +94,7 @@ type wxPayRequest struct {
 	AppId          string `xml:"appid"`            // 公众账号ID
 	MchId          string `xml:"mch_id"`           // 商户号
 	SubMchId       string `xml:"sub_mch_id"`       // 子商户ID
+	SubAppId       string `xml:"sub_appid"`        //子商户公众号ID
 	NonceStr       string `xml:"nonce_str"`        // 随机字符串
 	Body           string `xml:"body"`             // 商品描述
 	OutTradeId     string `xml:"out_trade_no"`     // 商户订单号
@@ -150,17 +151,16 @@ func (W *WXPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error 
 		OutTradeId:     request.OutTradeId,
 		Amount:         request.Amount,
 		AuthCode:       request.AuthCode,
-		SpbillCreateIp: "123.131.25.254",
+		SpbillCreateIp: request.IPAddr,
 	}
-	if request.r.mchid == "" {
-		user := getUser(request.UserId, PAYTYPE_WXPAY)
-		if user.Status != UserSucc {
-			resp.Code = AuthErr
-			return nil
-		}
-		request.r.mchid = user.MchId
+	auth := W.token(request.UserId, request.r.mchid)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
 	}
+	request.r.mchid = auth.MchId
 	params.SubMchId = request.r.mchid
+	params.SubAppId = auth.AppId
 	params.Sign = WXPaySigner(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	if err != nil {
@@ -263,6 +263,7 @@ type wxRefundRequest struct {
 	AppId    string `xml:"appid"`      // 公众账号ID
 	MchId    string `xml:"mch_id"`     // 商户号
 	SubMchId string `xml:"sub_mch_id"` // 子商户ID
+	SubAppId string `xml:"sub_appid"`  //子商户公众账号ID
 	NonceStr string `xml:"nonce_str"`  // 随机字符串
 
 	OutTradeId string `xml:"out_trade_no"` // 商户订单号
@@ -310,11 +311,10 @@ func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
 		return nil
 	}
 	params := wxRefundRequest{
-		AppId:      wxPayAppId,
-		MchId:      wxPayMchId,
-		NonceStr:   randomString(32),
-		OutTradeId: request.OutTradeId,
-		/*RefundId:     request.RefundId,*/
+		AppId:        wxPayAppId,
+		MchId:        wxPayMchId,
+		NonceStr:     randomString(32),
+		OutTradeId:   request.OutTradeId,
 		OutRefundId:  request.OutRefundId,
 		RefundAmount: request.Amount,
 		RefundDesc:   request.Memo,
@@ -333,15 +333,15 @@ func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
 	params.TradeId = trade.Data.TradeId
 	params.Amount = trade.Data.Amount
 
-	if request.r.mchid == "" {
-		user := getUser(request.UserId, PAYTYPE_WXPAY)
-		if user.UserId == "" {
-			resp.Code = AuthErr
-			return nil
-		}
-		request.r.mchid = user.MchId
+	auth := W.token(request.UserId, request.r.mchid)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
 	}
+
+	request.r.mchid = auth.MchId
 	params.SubMchId = request.r.mchid
+	params.SubAppId = auth.AppId
 	params.Sign = WXPaySigner(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	if err != nil {
@@ -396,9 +396,10 @@ type wxCancelRequest struct {
 	XMLName xml.Name `xml:"xml"`
 
 	// required
-	AppId      string `xml:"appid"`        // 公众账号ID
-	MchId      string `xml:"mch_id"`       // 商户号
-	SubMchId   string `xml:"sub_mch_id"`   // 子商户ID
+	AppId      string `xml:"appid"`      // 公众账号ID
+	MchId      string `xml:"mch_id"`     // 商户号
+	SubMchId   string `xml:"sub_mch_id"` // 子商户ID
+	SubAppId   string `xml:"sub_appid"`
 	NonceStr   string `xml:"nonce_str"`    // 随机字符串
 	Body       string `xml:"body"`         // 商品描述
 	OutTradeId string `xml:"out_trade_no"` // 商户订单号
@@ -421,15 +422,15 @@ func (W *WXPay) Cancel(request *TradeRequest, resp *Response) error {
 		OutTradeId: request.OutTradeId,
 		TradeId:    request.TradeId,
 	}
-	if request.r.mchid == "" {
-		user := getUser(request.UserId, PAYTYPE_WXPAY)
-		if user.UserId == "" {
-			resp.Code = AuthErr
-			return nil
-		}
-		request.r.mchid = user.MchId
+	auth := W.token(request.UserId, request.r.mchid)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
 	}
+
+	request.r.mchid = auth.MchId
 	params.SubMchId = request.r.mchid
+	params.SubAppId = auth.AppId
 	params.Sign = WXPaySigner(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	if err != nil {
@@ -466,9 +467,10 @@ type wxTradeInfoRequest struct {
 	XMLName xml.Name `xml:"xml"`
 
 	// required
-	AppId      string `xml:"appid"`        // 公众账号ID
-	MchId      string `xml:"mch_id"`       // 商户号
-	SubMchId   string `xml:"sub_mch_id"`   // 子商户ID
+	AppId      string `xml:"appid"`      // 公众账号ID
+	MchId      string `xml:"mch_id"`     // 商户号
+	SubMchId   string `xml:"sub_mch_id"` // 子商户ID
+	SubAppId   string `xml:"sub_appid"`
 	NonceStr   string `xml:"nonce_str"`    // 随机字符串
 	Body       string `xml:"body"`         // 商品描述
 	OutTradeId string `xml:"out_trade_no"` // 商户订单号
@@ -484,14 +486,12 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
-	if request.r.mchid == "" {
-		user := getUser(request.UserId, PAYTYPE_WXPAY)
-		if user.UserId == "" {
-			resp.Code = AuthErr
-			return nil
-		}
-		request.r.mchid = user.MchId
+	auth := W.token(request.UserId, request.r.mchid)
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
+		return nil
 	}
+	request.r.mchid = auth.MchId
 	q := bson.M{"source": PAYTYPE_WXPAY}
 	if request.TradeId != "" {
 		q["tradeid"] = request.TradeId
@@ -508,6 +508,7 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		TradeId:    request.TradeId,
 	}
 	params.SubMchId = request.r.mchid
+	params.SubAppId = auth.AppId
 	params.Sign = WXPaySigner(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	if err != nil {
@@ -558,15 +559,16 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 //子商户模式
 //本接口只负责数据组装，发起请求应由对应客户端发起
 func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
-	user := getUser(request.UserId, PAYTYPE_WXPAY)
-	if user.Status != UserSucc {
-		resp.Code = AuthErr
+	auth := W.token(request.UserId, "")
+	if auth.Status != AuthStatusSucc {
+		resp.Code = AuthErrNotSigned
 		return nil
 	}
 	params := map[string]string{
 		"appid":            wxPayAppId,
 		"mch_id":           wxPayMchId,
-		"sub_mch_id":       user.MchId,
+		"sub_mch_id":       auth.MchId,
+		"sub_appid":        auth.AppId,
 		"nonce_str":        randomString(32),
 		"body":             request.ItemDes,
 		"out_trade_no":     request.OutTradeId,
@@ -613,6 +615,7 @@ func (W *WXPay) AuthSigned(request *AuthRequest, resp *AuthResult) error {
 		auth.MchId = request.MchId
 		auth.Type = PAYTYPE_WXPAY
 		auth.Status = AuthStatusSucc
+		auth.AppId = request.AppId
 		saveToken(auth)
 	}
 	resp.Data = Auth{
@@ -701,6 +704,17 @@ func (w *WXPay) errorCheck(result wxResult) (int, error) {
 	default:
 	}
 	return code, newError(result.ErrCode)
+}
+func (w *WXPay) token(userid, mchid string) authBase {
+	auth := authBase{}
+	if mchid == "" {
+		user := getUser(userid, PAYTYPE_WXPAY)
+		if user.Status != UserSucc {
+			return auth
+		}
+		mchid = user.MchId
+	}
+	return getToken(mchid, PAYTYPE_WXPAY)
 }
 
 var wxErrMap = map[string]int{
