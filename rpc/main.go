@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
-	"os"
 	"path/filepath"
 
 	config "github.com/panjjo/go-config"
@@ -17,9 +16,9 @@ var configPath string
 
 func main() {
 	//config
-	configPath = os.Getenv("GOPATH") + "/src/github.com/panjjo/ppp"
+	/*configPath = os.Getenv("GOPATH") + "/src/github.com/panjjo/ppp"*/
 
-	err := config.ReadConfigFile(filepath.Join(configPath, "/config.yml"))
+	err := config.ReadConfigFile(filepath.Join(configPath, "./config.yml"))
 	if err != nil {
 		panic(err)
 	}

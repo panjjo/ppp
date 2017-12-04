@@ -1,3 +1,5 @@
 *.yml
 *.key
+cert_prod/*
+config.prod.yml
 

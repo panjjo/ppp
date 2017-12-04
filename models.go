@@ -82,6 +82,10 @@ type WapPayRequest struct {
 	UserId     string
 	IPAddr     string
 	Scene      Scene //场景
+	r          rsys
+	OpenId     string //与sub_openid二选一 公众号支付必传，openid为在服务商公众号的id
+	SubOpenId  string //与openid 二选一 公众号支付必传，sub_openid为在子商户公众号的id
+	TradeType  string //订单类型，网页支付公众号支付JSAPI
 }
 
 type Scene struct {

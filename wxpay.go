@@ -555,44 +555,133 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 	return nil
 }
 
+type wxWapPayRequest struct {
+	XMLName xml.Name `xml:"xml"`
+
+	// required
+	AppId      string `xml:"appid"`      // 公众账号ID
+	MchId      string `xml:"mch_id"`     // 商户号
+	SubMchId   string `xml:"sub_mch_id"` // 子商户ID
+	SubAppId   string `xml:"sub_appid"`
+	NonceStr   string `xml:"nonce_str"`    // 随机字符串
+	Body       string `xml:"body"`         // 商品描述
+	OutTradeId string `xml:"out_trade_no"` // 商户订单号
+	Amount     string `xml:"total_fee"`
+	IPAddr     string `xml:"spbill_create_ip"`
+	NotifyUrl  string `xml:"notify_url"`
+	TradeType  string `xml:"trade_type"`
+	SceneInfo  string `xml:"scene_info"`
+	Sign       string `xml:"sign"`        // 签名
+	OpenId     string `xml:"openid"`      //与sub_openid二选一 公众号支付必传，openid为在服务商公众号的id
+	SubOpenId  string `xml:"sub_openid" ` //与openid 二选一 公众号支付必传，sub_openid为在子商户公众号的id
+}
+type wxWapPayResult struct {
+	XMLName xml.Name `xml:"xml"`
+
+	ReturnCode string `xml:"return_code"` // 返回状态码
+	ReturnMsg  string `xml:"return_msg"`  // 返回信息
+
+	// when return_code == SUCCESS
+	AppId      string `xml:"appid"`        // 公众账号ID
+	MchId      string `xml:"mch_id"`       // 商户号
+	DeviceInfo string `xml:"device_info"`  // 设备号
+	NonceStr   string `xml:"nonce_str"`    // 随机字符串
+	Sign       string `xml:"sign"`         // 签名
+	ResultCode string `xml:"result_code"`  // 业务结果
+	ErrCode    string `xml:"err_code"`     // 错误代码
+	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
+
+	TradeType string `xml:"trade_type"`
+	PrePayId  string `xml:"prepay_id"`
+	MWEBURL   string `xml:"mweb_url"`
+}
+
+var (
+	wxPayTypeJS = "JSAPI"
+	wxPayTypeH5 = "MWEB"
+)
+
 //网页支付
 //子商户模式
-//本接口只负责数据组装，发起请求应由对应客户端发起
 func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
+	if request.r.time == 0 {
+		request.r.time = getNowSec()
+	}
 	auth := W.token(request.UserId, "")
 	if auth.Status != AuthStatusSucc {
 		resp.Code = AuthErrNotSigned
 		return nil
 	}
-	params := map[string]string{
-		"appid":            wxPayAppId,
-		"mch_id":           wxPayMchId,
-		"sub_mch_id":       auth.MchId,
-		"sub_appid":        auth.AppId,
-		"nonce_str":        randomString(32),
-		"body":             request.ItemDes,
-		"out_trade_no":     request.OutTradeId,
-		"total_fee":        fmt.Sprintf("%d", request.Amount),
-		"spbill_create_ip": request.IPAddr,
-		"notify_url":       wxPayNotifyUrl,
-		"trade_type":       "MWEB",
-		"scene_info": string(jsonEncode(map[string]interface{}{
+	params := wxWapPayRequest{
+		AppId:      wxPayAppId,
+		MchId:      wxPayMchId,
+		SubMchId:   auth.MchId,
+		SubAppId:   auth.AppId,
+		NonceStr:   randomString(32),
+		Body:       request.ItemDes,
+		OutTradeId: request.OutTradeId,
+		Amount:     fmt.Sprintf("%d", request.Amount),
+		IPAddr:     request.IPAddr,
+		NotifyUrl:  wxPayNotifyUrl,
+		TradeType:  request.TradeType,
+		OpenId:     request.OpenId,
+		SubOpenId:  request.SubOpenId,
+		SceneInfo: string(jsonEncode(map[string]interface{}{
 			"h5_info": map[string]interface{}{"type": "Wap", "wap_url": request.Scene.Url, "wap_name": request.Scene.Name},
 		})),
 	}
-	params["sign"] = WXPaySigner(params)
-	resp.SourceData = string(jsonEncode(params))
-	//save tradeinfo
-	saveTrade(Trade{
-		OutTradeId: request.OutTradeId,
-		Status:     0,
-		Type:       1,
-		Amount:     request.Amount,
-		Source:     PAYTYPE_WXPAY,
-		UpTime:     getNowSec(),
-		Ex:         request.Ex,
-		Id:         randomTimeString(), // PPPID
-	})
+	if params.TradeType == wxPayTypeJS {
+		if params.OpenId == "" && params.SubOpenId == "" {
+			resp.Code = SysErrParams
+			resp.SourceData = fmt.Sprintf("trade type:%s,openid or sub_openid must have one", params.TradeType)
+
+		}
+	}
+	params.Sign = WXPaySigner(structToMap(params, "xml"))
+	postBody, err := xml.Marshal(params)
+	if err != nil {
+		resp.Code = SysErrParams
+		resp.SourceData = err.Error()
+		return nil
+	}
+	var result interface{}
+	var next int
+	for getNowSec()-request.r.time < 30 {
+		result, next, err = W.request(wxPayUrl+"/pay/unifiedorder", postBody)
+		resp.SourceData = string(jsonEncode(result))
+		if err != nil {
+			if v, ok := wxErrMap[err.Error()]; ok {
+				resp.Code = v
+			} else {
+				resp.Code = TradeErr
+			}
+			switch next {
+			case 2, -1:
+				//网络异常 1s后重试
+				time.Sleep(1 * time.Second)
+			default:
+				//其他错误，直接返回
+				return nil
+			}
+		} else {
+			//成功返回
+			tmpresult := wxWapPayResult{}
+			xml.Unmarshal(result.([]byte), &tmpresult)
+			resp.SourceData = tmpresult.MWEBURL
+			//save tradeinfo
+			saveTrade(Trade{
+				OutTradeId: request.OutTradeId,
+				Status:     0,
+				Type:       1,
+				Amount:     request.Amount,
+				Source:     PAYTYPE_WXPAY,
+				UpTime:     getNowSec(),
+				Ex:         request.Ex,
+				Id:         randomTimeString(), // PPPID
+			})
+			return nil
+		}
+	}
 	return nil
 }
 
