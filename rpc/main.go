@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ func main() {
 	/*configPath = os.Getenv("GOPATH") + "/src/github.com/panjjo/ppp"*/
 
 	err := config.ReadConfigFile(filepath.Join(configPath, "./config.yml"))
+	fmt.Println(filepath.Join(configPath, "./config.yml"))
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +61,10 @@ func main() {
 	})
 
 	rpc.HandleHTTP()
-	l, e := net.Listen("tcp", ":1234")
+	config.Mod = "sys"
+	addr := config.GetStringDefault("listen", ":1234")
+	l, e := net.Listen("tcp", addr)
+	fmt.Println("listen at:", addr)
 	if e != nil {
 		log.Fatal("Listen error:", e)
 	}

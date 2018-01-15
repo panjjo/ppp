@@ -99,6 +99,7 @@ type TradeRequest struct {
 	OutTradeId string //交易ID
 	TradeId    string //第三方交易ID
 	UserId     string //权限对应的UserId
+	DisSync    bool   //是否禁用同步
 	r          rsys
 }
 

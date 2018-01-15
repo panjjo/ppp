@@ -361,6 +361,13 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		q["tradeid"] = request.TradeId
 	}
 	trade := getTrade(q)
+	if request.DisSync {
+		if trade.Id == "" {
+			resp.Code = TradeErrNotFound
+		}
+		resp.Data = trade
+		return nil
+	}
 	params := map[string]interface{}{
 		"out_trade_no": request.OutTradeId,
 		"trade_no":     request.TradeId,
@@ -401,11 +408,13 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 				TradeId:    tmpresult["trade_no"].(string),
 				Status:     aliTradeStatusMap[tmpresult["trade_status"].(string)],
 				Amount:     int64(amount * 100),
+				PayTime:    str2Sec("2006-01-02 15:04:05", tmpresult["send_pay_date"].(string)),
 				Id:         trade.Id,
+				UpTime:     getNowSec(),
 			}
 			//更新数据
 			if trade.Id != "" {
-				updateTrade(bson.M{"id": trade.Id}, bson.M{"$set": bson.M{"status": resp.Data.Status, "uptime": getNowSec()}})
+				updateTrade(bson.M{"id": trade.Id}, bson.M{"$set": bson.M{"status": resp.Data.Status, "uptime": getNowSec(), "paytime": resp.Data.PayTime}})
 			}
 			return nil
 		}

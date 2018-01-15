@@ -500,6 +500,13 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		q["outtradeid"] = request.OutTradeId
 	}
 	trade := getTrade(q)
+	if request.DisSync {
+		if trade.Id == "" {
+			resp.Code = TradeErrNotFound
+		}
+		resp.Data = trade
+		return nil
+	}
 	params := wxTradeInfoRequest{
 		AppId:      wxPayAppId,
 		MchId:      wxPayMchId,
@@ -544,10 +551,11 @@ func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 				TradeId:    tmpresult.TradeId,
 				Status:     wxTradeStatusMap[tmpresult.Status],
 				Amount:     tmpresult.Amount,
+				PayTime:    str2Sec("20060102150405", tmpresult.TimeEnd),
 				Id:         trade.Id,
 			}
 			if trade.Id != "" {
-				updateTrade(bson.M{"id": trade.Id}, bson.M{"$set": bson.M{"status": resp.Data.Status, "uptime": getNowSec()}})
+				updateTrade(bson.M{"id": trade.Id}, bson.M{"$set": bson.M{"status": resp.Data.Status, "uptime": getNowSec(), "paytime": resp.Data.PayTime}})
 			}
 			return nil
 		}
@@ -594,6 +602,7 @@ type wxWapPayResult struct {
 	TradeType string `xml:"trade_type"`
 	PrePayId  string `xml:"prepay_id"`
 	MWEBURL   string `xml:"mweb_url"`
+	CodeUrl   string `xml:"code_url"`
 }
 
 var (
@@ -667,7 +676,23 @@ func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 			//成功返回
 			tmpresult := wxWapPayResult{}
 			xml.Unmarshal(result.([]byte), &tmpresult)
-			resp.SourceData = tmpresult.MWEBURL
+			if params.TradeType == wxPayTypeJS {
+				jsParams := map[string]string{
+					"appId":     wxPayAppId,
+					"timeStamp": fmt.Sprintf("%d", getNowSec()),
+					"nonceStr":  randomString(32),
+					"package":   "prepay_id=" + tmpresult.PrePayId,
+					"signType":  "MD5",
+				}
+				jsParams["paySign"] = WXPaySigner(jsParams)
+				resp.SourceData = string(jsonEncode(jsParams))
+			} else {
+				resp.SourceData = string(jsonEncode(map[string]string{
+					"perpay_id": tmpresult.PrePayId,
+					"mweb_url":  tmpresult.MWEBURL,
+				}))
+			}
+
 			//save tradeinfo
 			saveTrade(Trade{
 				OutTradeId: request.OutTradeId,
@@ -750,6 +775,7 @@ func (w *WXPay) requestTls(url string, data []byte) (interface{}, int, error) {
 		return nil, -1, err
 	}
 	result := wxResult{}
+
 	if err := xml.Unmarshal(body, &result); err != nil {
 		return nil, 0, err
 	}
