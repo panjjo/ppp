@@ -13,5 +13,6 @@ cert
 
 ## 启动
 ```
+    mv config.yml.tmp config.yml
     go run rpc/main.go
 ```
