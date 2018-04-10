@@ -66,7 +66,7 @@ func loadAliPayCertKey(path string) {
 	block, _ := pem.Decode(public)
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		log.Fatal("Load AliPay PublicKey Error:", err)
+		log.Fatal("Load AliPay Parse Error:", err)
 	}
 	aliPayPublicKey, _ = pub.(*rsa.PublicKey)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -13,14 +14,14 @@ import (
 	"github.com/panjjo/ppp/pool"
 )
 
-var configPath string
+var configPath = flag.String("path", "", "配置文件地址")
 
 func main() {
 	//config
 	/*configPath = os.Getenv("GOPATH") + "/src/github.com/panjjo/ppp"*/
+	flag.Parse()
 
-	err := config.ReadConfigFile(filepath.Join(configPath, "./config.yml"))
-	fmt.Println(filepath.Join(configPath, "./config.yml"))
+	err := config.ReadConfigFile(filepath.Join(*configPath, "./config.yml"))
 	if err != nil {
 		panic(err)
 	}
@@ -74,7 +75,7 @@ func main() {
 func initAliPay() {
 	ali := ppp.AliPayInit{
 		ServiceProviderId: config.GetStringDefault("serviceid", ""),
-		ConfigPath:        configPath,
+		ConfigPath:        *configPath,
 	}
 	var err error
 	if ali.AppId, err = config.GetString("appid"); err != nil {
@@ -91,7 +92,7 @@ func initAliPay() {
 }
 func initWXPay() {
 	wx := ppp.WXPayInit{
-		ConfigPath: configPath,
+		ConfigPath: *configPath,
 	}
 	var err error
 	if wx.AppId, err = config.GetString("appid"); err != nil {

@@ -1,6 +1,7 @@
 package ppp
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -50,6 +51,7 @@ type AliPay struct {
 //支付宝签约通过后调用
 //支付宝做更新签约状态，签约支付宝账号
 func (A *AliPay) AuthSigned(request *AuthRequest, resp *Response) error {
+	fmt.Printf("alipay api AuthSigned:%+v\n", request)
 	auth := getToken(request.MchId, PAYTYPE_ALIPAY)
 	if auth.Id == "" {
 		resp.Code = AuthErr
@@ -75,6 +77,7 @@ func (A *AliPay) AuthSigned(request *AuthRequest, resp *Response) error {
 // 返回参数为 TradeResult
 // userid 为收款方自定义id,应存在签约授权成功后保存的对应关系
 func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error {
+	fmt.Printf("alipay api BarCodePay:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -205,6 +208,7 @@ func (A *AliPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error
 // 交易退款
 // DOC:https://docs.open.alipay.com/api_1/alipay.trade.refund
 func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
+	fmt.Printf("alipay api Refund:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -289,6 +293,7 @@ func (A *AliPay) Refund(request *RefundRequest, resp *TradeResult) error {
 // 入参 TradeRequest
 // 出参 Response
 func (A *AliPay) Cancel(request *TradeRequest, resp *Response) error {
+	fmt.Printf("alipay api Cancel:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -343,6 +348,7 @@ func (A *AliPay) Cancel(request *TradeRequest, resp *Response) error {
 // 传入参数TradeRequest
 // 返回参数TradeResult
 func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
+	fmt.Printf("alipay api TradeInfo:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -408,9 +414,11 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 				TradeId:    tmpresult["trade_no"].(string),
 				Status:     aliTradeStatusMap[tmpresult["trade_status"].(string)],
 				Amount:     int64(amount * 100),
-				PayTime:    str2Sec("2006-01-02 15:04:05", tmpresult["send_pay_date"].(string)),
 				Id:         trade.Id,
 				UpTime:     getNowSec(),
+			}
+			if paytime, ok := tmpresult["send_pay_date"]; ok {
+				resp.Data.PayTime = str2Sec("2006-01-02 15:04:05", paytime.(string))
 			}
 			//更新数据
 			if trade.Id != "" {
@@ -428,6 +436,7 @@ func (A *AliPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 // 返回为 AuthResult
 // 如果刷新获取token后返回的第三方授权已经存在会更新，不存在新生授权
 func (A *AliPay) Auth(request *Token, resp *AuthResult) error {
+	fmt.Printf("alipay api Auth:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -499,6 +508,7 @@ func (A *AliPay) Auth(request *Token, resp *AuthResult) error {
 //DOC:https://docs.open.alipay.com/203/107090/
 //本接口只负责数据组装，发起请求应由对应客户端发起
 func (A *AliPay) WapPayParams(request *WapPayRequest, resp *Response) error {
+	fmt.Printf("alipay api WapPayParams:%+v\n", request)
 	params := map[string]interface{}{
 		"body":            request.ItemDes,
 		"subject":         request.TradeName,
@@ -533,6 +543,7 @@ func (A *AliPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 //wap支付的异步回调
 //request 接收到的支付宝回调所有参数
 func (A *AliPay) CallBack(request map[string]string, resp *Response) error {
+	fmt.Printf("alipay api Callback:%+v\n", request)
 	sign, ok := request["sign"]
 	if !ok {
 		resp.Code = SysErrParams
@@ -563,6 +574,7 @@ func (A *AliPay) request(url string, okey string) (interface{}, int, error) {
 		return nil, -1, err
 	}
 	result := map[string]interface{}{}
+	fmt.Printf("alipay request :url %s,body:%s", url, string(body))
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, 0, err
 	}

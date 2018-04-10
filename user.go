@@ -27,6 +27,7 @@ func (A *Account) Regist(request *User, resp *AccountResult) error {
 		resp.Code = SysErrParams
 		return nil
 	}
+	var tokenStatus Status = UserWaitVerify
 	if request.MchId != "" {
 		//验证授权是否存在
 		auth := getToken(request.MchId, request.Type)
@@ -34,14 +35,15 @@ func (A *Account) Regist(request *User, resp *AccountResult) error {
 			resp.Code = AuthErr
 			return nil
 		}
-		request.Status = UserSucc
+		tokenStatus = UserSucc
 	}
 	if user.UserId != "" {
 		//更新授权绑定
-		updateUser(user.UserId, user.Type, bson.M{"$set": bson.M{"mchid": request.MchId}})
+		updateUser(user.UserId, user.Type, bson.M{"$set": bson.M{"mchid": request.MchId, "status": tokenStatus}})
 	} else {
 		//新增
 		request.Id = randomString(32)
+		request.Status = tokenStatus
 		saveUser(*request)
 	}
 	resp.Data = *request

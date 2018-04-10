@@ -140,6 +140,7 @@ type wxTradeResult struct {
 // 返回参数为 TradeResult
 // userid 为收款方自定义id,应存在签约授权成功后保存的对应关系
 func (W *WXPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error {
+	fmt.Printf("wxpay api BarCodePay:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -302,6 +303,7 @@ type wxRefundResult struct {
 // 交易退款
 // DOC:https://pay.weixin.qq.com/wiki/doc/api/micropay_sl.php?chapter=9_4
 func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
+	fmt.Printf("wxpay api Refund:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -412,6 +414,7 @@ type wxCancelRequest struct {
 // 入参 TradeRequest
 // 出参 Response
 func (W *WXPay) Cancel(request *TradeRequest, resp *Response) error {
+	fmt.Printf("wxpay api Cancel:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -483,6 +486,7 @@ type wxTradeInfoRequest struct {
 // 传入参数TradeRequest
 // 返回参数TradeResult
 func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
+	fmt.Printf("wxpay api TradeInfo:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -613,6 +617,7 @@ var (
 //网页支付
 //子商户模式
 func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
+	fmt.Printf("wxpay api WapPayParams:%+v\n", request)
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -715,6 +720,7 @@ func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 // 传入参数为Token格式,微信传入MchId：子商户ID
 // 返回为 AuthResult
 func (W *WXPay) AuthSigned(request *AuthRequest, resp *AuthResult) error {
+	fmt.Printf("wxpay api AuthSigned:%+v\n", request)
 	if request.MchId == "" {
 		resp.Code = SysErrParams
 		return nil
@@ -775,6 +781,7 @@ func (w *WXPay) requestTls(url string, data []byte) (interface{}, int, error) {
 		return nil, -1, err
 	}
 	result := wxResult{}
+	fmt.Printf("wxpay request :url:%s,body:%s", url, string(body))
 
 	if err := xml.Unmarshal(body, &result); err != nil {
 		return nil, 0, err
@@ -793,6 +800,7 @@ func (w *WXPay) request(url string, data []byte) (interface{}, int, error) {
 		return nil, -1, err
 	}
 	result := wxResult{}
+	fmt.Printf("wxpay request :url:%s,body:%s", url, string(body))
 	if err := xml.Unmarshal(body, &result); err != nil {
 		return nil, 0, err
 	}
