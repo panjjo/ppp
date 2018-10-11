@@ -46,7 +46,7 @@ func getToken(mchid, t string) authBase {
 	session := DBPool.Get()
 	defer session.Close()
 	auth := authBase{}
-	session.DB().C("auth").Find(bson.M{"mchid": mchid, "type": t}).One(&auth)
+	session.DB().C("authinfo").Find(bson.M{"mchid": mchid, "type": t}).One(&auth)
 	return auth
 }
 
@@ -54,21 +54,21 @@ func getToken(mchid, t string) authBase {
 func updateToken(mchid, t string, update bson.M) error {
 	session := DBPool.Get()
 	defer session.Close()
-	return session.DB().C("auth").Update(bson.M{"mchid": mchid, "type": t}, update)
+	return session.DB().C("authinfo").Update(bson.M{"mchid": mchid, "type": t}, update)
 }
 
 //保存授权
 func saveToken(auth authBase) error {
 	session := DBPool.Get()
 	defer session.Close()
-	return session.DB().C("auth").Insert(auth)
+	return session.DB().C("authinfo").Insert(auth)
 }
 
 //删除授权
 func deleteToken(mchid, t string) error {
 	session := DBPool.Get()
 	defer session.Close()
-	return session.DB().C("auth").Remove(bson.M{"mchid": mchid, "type": t})
+	return session.DB().C("authinfo").Remove(bson.M{"mchid": mchid, "type": t})
 }
 
 //获取交易

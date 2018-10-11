@@ -85,7 +85,7 @@ type WapPayRequest struct {
 	r          rsys
 	OpenId     string //与sub_openid二选一 公众号支付必传，openid为在服务商公众号的id
 	SubOpenId  string //与openid 二选一 公众号支付必传，sub_openid为在子商户公众号的id
-	TradeType  string //订单类型，网页支付公众号支付JSAPI
+	TradeType  string //订单类型，网页支付公众号支付：JSAPI,扫码支付：NATIVE，app支付：APP
 }
 
 type Scene struct {

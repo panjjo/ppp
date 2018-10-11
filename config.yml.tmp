@@ -16,3 +16,6 @@ database:
   host: mongodb://shanshou:shengyun123@shanshou.mongo.host:27017
   db: ppp
   max: 100
+sys:
+  listen: :1234
+  loglevel: debug

@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -25,6 +24,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	statement := new(ppp.Statement)
 	rpc.Register(statement)
 
@@ -63,9 +63,11 @@ func main() {
 
 	rpc.HandleHTTP()
 	config.Mod = "sys"
+	ppp.InitLog(config.GetStringDefault("loglevel", "warn"))
+
 	addr := config.GetStringDefault("listen", ":1234")
 	l, e := net.Listen("tcp", addr)
-	fmt.Println("listen at:", addr)
+	ppp.Log.INFO.Printf("Listen at:%s", addr)
 	if e != nil {
 		log.Fatal("Listen error:", e)
 	}

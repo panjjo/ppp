@@ -20,8 +20,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/panjjo/log4go"
 	"gopkg.in/mgo.v2/bson"
 )
+
+var Log *log4go.Logger
+
+func InitLog(level string) {
+	Log = log4go.NewLogger(level)
+}
 
 var _system_id int64
 
@@ -30,6 +37,7 @@ func init() {
 	gob.Register(bson.M{})
 
 	go resetSystemId()
+
 }
 
 func resetSystemId() {
@@ -274,6 +282,7 @@ func getRequest(url string) ([]byte, error) {
 	client := timeoutClient()
 	resp, err := client.Get(url)
 	if err != nil {
+		fmt.Println("GetRequest:", url, "Error:", err.Error())
 		return nil, err
 	}
 	defer resp.Body.Close()

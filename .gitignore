@@ -1,6 +1,7 @@
 *.yml
 *.key
 cert_prod/*
+cert_dev/*
 config.prod.yml
 main
-
+.vscode/*
