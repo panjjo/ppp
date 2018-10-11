@@ -778,7 +778,6 @@ type wxResult struct {
 	ResultCode string `xml:"result_code"`  // 业务结果
 	ErrCode    string `xml:"err_code"`     // 错误代码
 	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
-
 }
 
 func (w *WXPay) requestTls(url string, data []byte) (interface{}, int, error) {

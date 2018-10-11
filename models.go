@@ -43,6 +43,9 @@ const (
 
 	AuthStatusSucc       Status = 1
 	AuthStatusWaitSigned Status = 0
+	APPPAYPARAMS         string = "APP"
+	WAPPAYPARAMS         string = "WAP"
+	JSPAYPARAMS          string = "JS"
 )
 
 const (

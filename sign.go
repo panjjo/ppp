@@ -24,6 +24,7 @@ var wxPayCertTlsConfig *tls.Config   //微信支付证书tls
 
 //WXPay使用私钥做验签
 //用于同步接口请求
+//异步回调接口的验证也是用此方法
 func WXPaySigner(data map[string]string) (signer string) {
 	message := mapSortAndJoin(data, "=", "&", true)
 	message += "&key=" + wxPaySecretKey

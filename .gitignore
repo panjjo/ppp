@@ -5,3 +5,4 @@ cert_dev/*
 config.prod.yml
 main
 .vscode/*
+*.DS_Store

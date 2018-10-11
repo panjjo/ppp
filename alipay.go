@@ -508,29 +508,42 @@ func (A *AliPay) Auth(request *Token, resp *AuthResult) error {
 	return nil
 }
 
-//网页支付
 //使用应用自授权，非子商户模式
 //DOC:https://docs.open.alipay.com/203/107090/
 //本接口只负责数据组装，发起请求应由对应客户端发起
-func (A *AliPay) WapPayParams(request *WapPayRequest, resp *Response) error {
+func (A *AliPay) PayParams(request *WapPayRequest, resp *Response) error {
 	Log.DEBUG.Printf("AliPay api:WapPayParams,request:%+v", request)
 	defer Log.DEBUG.Printf("AliPay api:WapPayParams,response:%+v", resp)
+	var productCode, method string
+	switch request.TradeType {
+	case WAPPAYPARAMS:
+		productCode = "QUICK_WAP_WAY"
+		method = "alipay.trade.wap.pay"
+	case APPPAYPARAMS:
+		productCode = "QUICK_MSECURITY_PAY"
+		method = "alipay.trade.app.pay"
+	default:
+		productCode = "QUICK_WAP_WAY"
+		method = "alipay.trade.wap.pay"
+	}
 	params := map[string]interface{}{
 		"body":            request.ItemDes,
 		"subject":         request.TradeName,
 		"out_trade_no":    request.OutTradeId,
 		"total_amount":    float64(request.Amount) / 100.0,
-		"product_code":    "QUICK_WAP_WAY",
+		"product_code":    productCode,
 		"store_id":        request.ShopId,
 		"passback_params": request.Ex,
 	}
 	sysParams := A.sysParams()
-	sysParams["method"] = "alipay.trade.wap.pay"
+	sysParams["method"] = method
 	sysParams["biz_content"] = string(jsonEncode(params))
 	sysParams["return_url"] = request.ReturnUrl
 	sysParams["notify_url"] = aliPayNotifyUrl
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
+	Log.DEBUG.Printf("AliPay api:WapPayParams,sysParams:%+v", sysParams)
 	resp.SourceData = httpBuildQuery(sysParams)
+
 	//save tradeinfo
 	saveTrade(Trade{
 		OutTradeId: request.OutTradeId,
