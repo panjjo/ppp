@@ -625,6 +625,11 @@ var (
 func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 	Log.DEBUG.Printf("WXPay api:WapPayParams,request:%+v", request)
 	defer Log.DEBUG.Printf("WXPay api:WapPayParams,response:%+v", resp)
+	var tradeType string
+	switch request.TradeType {
+	case APPPAYPARAMS:
+		tradeType = "APP"
+	}
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
@@ -644,7 +649,7 @@ func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 		Amount:     fmt.Sprintf("%d", request.Amount),
 		IPAddr:     request.IPAddr,
 		NotifyUrl:  wxPayNotifyUrl,
-		TradeType:  request.TradeType,
+		TradeType:  tradeType,
 		OpenId:     request.OpenId,
 		SubOpenId:  request.SubOpenId,
 		SceneInfo: string(jsonEncode(map[string]interface{}{
@@ -659,6 +664,7 @@ func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 		}
 	}
 	params.Sign = WXPaySigner(structToMap(params, "xml"))
+	Log.ERROR.Printf("wxpay params:%+v", params)
 	postBody, err := xml.Marshal(params)
 	if err != nil {
 		resp.Code = SysErrParams

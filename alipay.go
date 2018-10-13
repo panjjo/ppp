@@ -18,13 +18,13 @@ var (
 )
 
 const (
-	FC_ALIPAY_BARCODEPAY     string = "AliPay.BarCodePay"   //支付宝条码支付
-	FC_ALIPAY_CANCEL         string = "AliPay.Cancel"       //支付宝取消交易
-	FC_ALIPAY_AUTH           string = "AliPay.Auth"         //支付宝授权
-	FC_ALIPAY_REFUND         string = "AliPay.Refund"       //支付宝退款
-	FC_ALIPAY_TRADEINFO      string = "AliPay.TradeInfo"    //支付宝订单详情
-	FC_ALIPAY_AUTHSIGNED     string = "AliPay.AuthSigned"   //签约接口
-	FC_ALIPAY_WAPTRADEPARAMS string = "AliPay.WapPayParams" //网站支付参数组装
+	FC_ALIPAY_BARCODEPAY     string = "AliPay.BarCodePay" //支付宝条码支付
+	FC_ALIPAY_CANCEL         string = "AliPay.Cancel"     //支付宝取消交易
+	FC_ALIPAY_AUTH           string = "AliPay.Auth"       //支付宝授权
+	FC_ALIPAY_REFUND         string = "AliPay.Refund"     //支付宝退款
+	FC_ALIPAY_TRADEINFO      string = "AliPay.TradeInfo"  //支付宝订单详情
+	FC_ALIPAY_AUTHSIGNED     string = "AliPay.AuthSigned" //签约接口
+	FC_ALIPAY_WAPTRADEPARAMS string = "AliPay.PayParams"  //支付参数组装
 )
 
 type AliPayInit struct {
@@ -541,8 +541,8 @@ func (A *AliPay) PayParams(request *WapPayRequest, resp *Response) error {
 	sysParams["return_url"] = request.ReturnUrl
 	sysParams["notify_url"] = aliPayNotifyUrl
 	sysParams["sign"] = base64Encode(AliPaySigner(sysParams))
-	Log.DEBUG.Printf("AliPay api:WapPayParams,sysParams:%+v", sysParams)
 	resp.SourceData = httpBuildQuery(sysParams)
+	// resp.SourceData = string(jsonEncode(sysParams))
 
 	//save tradeinfo
 	saveTrade(Trade{
@@ -569,8 +569,8 @@ func (A *AliPay) CallBack(request map[string]string, resp *Response) error {
 		resp.Code = SysErrParams
 		return nil
 	}
-	sign_type, ok := request["sign_type"]
-	if !ok || sign_type != "RSA2" {
+	signType, ok := request["sign_type"]
+	if !ok || signType != "RSA2" {
 		resp.Code = SysErrParams
 		return nil
 	}
@@ -634,7 +634,7 @@ func (A *AliPay) errorCheck(data map[string]interface{}) (int, error) {
 	}
 }
 
-func (a *AliPay) token(userid, mchid string) authBase {
+func (A *AliPay) token(userid, mchid string) authBase {
 	auth := authBase{}
 	if mchid == "" {
 		user := getUser(userid, PAYTYPE_ALIPAY)
@@ -647,7 +647,7 @@ func (a *AliPay) token(userid, mchid string) authBase {
 }
 
 /*组装系统级请求参数*/
-func (a *AliPay) sysParams() map[string]string {
+func (A *AliPay) sysParams() map[string]string {
 	return map[string]string{
 		"app_id":    aliPayAppId,
 		"format":    aliPayDefaultFormat,
