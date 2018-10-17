@@ -17,8 +17,8 @@ var (
 )
 
 const (
-	FC_WXSGPAY_TRADEINFO   string = "WXSGPay.TradeInfo" //订单详情
-	FC_WXSGPAY_TRADEPARAMS string = "WXSGPay.PayParams" //网站支付参数组装
+	FC_WXPAYSG_TRADEINFO   string = "WXPaySG.TradeInfo" //订单详情
+	FC_WXPAYSG_TRADEPARAMS string = "WXPaySG.PayParams" //网站支付参数组装
 )
 
 type WXPaySGInit struct {

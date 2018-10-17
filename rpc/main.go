@@ -41,7 +41,6 @@ func main() {
 	} else {
 		log.Fatal(err)
 	}
-	log.Println("a")
 	//wxpay
 	config.Mod = ppp.PAYTYPE_WXPAY
 	if ok, err := config.GetBool("status"); ok {
@@ -51,7 +50,6 @@ func main() {
 	} else {
 		log.Fatal(err)
 	}
-	log.Println("a")
 
 	//wxpaysg
 	config.Mod = ppp.PAYTYPE_WXPAYSG
