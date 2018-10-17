@@ -615,11 +615,6 @@ type wxWapPayResult struct {
 	CodeUrl   string `xml:"code_url"`
 }
 
-var (
-	wxPayTypeJS = "JSAPI"
-	wxPayTypeH5 = "MWEB"
-)
-
 //网页支付
 //子商户模式
 func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
@@ -656,7 +651,7 @@ func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 			"h5_info": map[string]interface{}{"type": "Wap", "wap_url": request.Scene.Url, "wap_name": request.Scene.Name},
 		})),
 	}
-	if params.TradeType == wxPayTypeJS {
+	if params.TradeType == JSPAYPARAMS {
 		if params.OpenId == "" && params.SubOpenId == "" {
 			resp.Code = SysErrParams
 			resp.SourceData = fmt.Sprintf("trade type:%s,openid or sub_openid must have one", params.TradeType)
@@ -694,7 +689,7 @@ func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
 			//成功返回
 			tmpresult := wxWapPayResult{}
 			xml.Unmarshal(result.([]byte), &tmpresult)
-			if params.TradeType == wxPayTypeJS {
+			if params.TradeType == JSPAYPARAMS {
 				jsParams := map[string]string{
 					"appId":     wxPayAppId,
 					"timeStamp": fmt.Sprintf("%d", getNowSec()),

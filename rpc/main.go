@@ -41,13 +41,24 @@ func main() {
 	} else {
 		log.Fatal(err)
 	}
-
+	log.Println("a")
 	//wxpay
 	config.Mod = ppp.PAYTYPE_WXPAY
 	if ok, err := config.GetBool("status"); ok {
 		initWXPay()
 		wx := new(ppp.WXPay)
 		rpc.Register(wx)
+	} else {
+		log.Fatal(err)
+	}
+	log.Println("a")
+
+	//wxpaysg
+	config.Mod = ppp.PAYTYPE_WXPAYSG
+	if ok, err := config.GetBool("status"); ok {
+		initWXPaySG()
+		wxsg := new(ppp.WXPaySG)
+		rpc.Register(wxsg)
 	} else {
 		log.Fatal(err)
 	}
@@ -114,3 +125,27 @@ func initWXPay() {
 	}
 	wx.Init()
 }
+
+func initWXPaySG() {
+	wx := ppp.WXPaySGInit{
+		ConfigPath: *configPath,
+	}
+	var err error
+	if wx.AppId, err = config.GetString("appid"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:appid")
+	}
+	if wx.Url, err = config.GetString("url"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:url")
+	}
+	if wx.MchId, err = config.GetString("mchid"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:mchid")
+	}
+	if wx.ApiKey, err = config.GetString("key"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:apikey")
+	}
+	if wx.NotifyUrl, err = config.GetString("notify"); err != nil {
+		log.Fatal("Init Error:Not Found wxpay:notify_url")
+	}
+	wx.Init()
+}
+

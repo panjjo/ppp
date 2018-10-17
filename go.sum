@@ -1,0 +1,12 @@
+github.com/agtorre/gocolorize v1.0.0 h1:TvGQd+fAqWQlDjQxSKe//Y6RaxK+RHpEU9X/zPmHW50=
+github.com/agtorre/gocolorize v1.0.0/go.mod h1:cH6imfTkHVBRJhSOeSeEZhB4zqEYSq0sXuIyehgZMIY=
+github.com/howeyc/fsnotify v0.9.0 h1:0gtV5JmOKH4A8SsFxG2BczSeXWWPvcMT0euZt5gDAxY=
+github.com/howeyc/fsnotify v0.9.0/go.mod h1:41HzSPxBGeFRQKEEwgh49TRw/nKBsYZ2cF1OzPjSJsA=
+github.com/panjjo/go-config v0.0.0-20161221052437-9f16f7c197bc h1:+c7r2Qp8B0g0Q3H3XsulW7bt4p8kXrbznG3k6thFXIw=
+github.com/panjjo/go-config v0.0.0-20161221052437-9f16f7c197bc/go.mod h1:/9K3P1JgkWR8NiAYgcFfOrCUywXprC1h+BmIsZY+wo0=
+github.com/panjjo/log4go v0.0.0-20161217074253-5bde1464d311 h1:JHhBHReQwr5E+WOCZb+8ManfZqGfNIcKnDxjxtZRBsQ=
+github.com/panjjo/log4go v0.0.0-20161217074253-5bde1464d311/go.mod h1:z6qSWwFYCtf8U5VX9Qudejb/32IZXAIyevxuxx3SZTU=
+gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce h1:xcEWjVhvbDy+nHP67nPDDpbYrY+ILlfndk4bRioVHaU=
+gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce/go.mod h1:yeKp02qBN3iKW1OzL3MGk2IdtZzaj7SFntXj72NppTA=
+gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0 h1:POO/ycCATvegFmVuPpQzZFJ+pGZeX22Ufu6fibxDVjU=
+gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0/go.mod h1:WDnlLJ4WF5VGsH/HVa3CI79GS0ol3YnhVnKP89i0kNg=

@@ -21,6 +21,8 @@ var aliPayPrivateKey *rsa.PrivateKey //应用私钥
 var aliPayPublicKey *rsa.PublicKey   //支付宝公钥
 var wxPaySecretKey string            //微信支付
 var wxPayCertTlsConfig *tls.Config   //微信支付证书tls
+var wxPaySGSecretKey string            //微信支付
+var wxPaySGCertTlsConfig *tls.Config   //微信支付证书tls
 
 //WXPay使用私钥做验签
 //用于同步接口请求
@@ -28,6 +30,15 @@ var wxPayCertTlsConfig *tls.Config   //微信支付证书tls
 func WXPaySigner(data map[string]string) (signer string) {
 	message := mapSortAndJoin(data, "=", "&", true)
 	message += "&key=" + wxPaySecretKey
+	return strings.ToUpper(makeMd5(message))
+}
+
+//WXPay使用私钥做验签
+//用于同步接口请求
+//异步回调接口的验证也是用此方法
+func WXPaySGSigner(data map[string]string) (signer string) {
+	message := mapSortAndJoin(data, "=", "&", true)
+	message += "&key=" + wxPaySGSecretKey
 	return strings.ToUpper(makeMd5(message))
 }
 
@@ -95,6 +106,34 @@ func loadWXPayCertKey(path string) {
 	}
 
 	wxPayCertTlsConfig = &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+}
+
+//加载微信支付相关证书信息
+func loadWXPaySGCertKey(path string) {
+	b, err := ioutil.ReadFile(filepath.Join(path, "cert/wxpay_single/cert.p12"))
+	if err != nil {
+		log.Fatal("Load WXPaySG Cert Error:", err)
+	}
+
+	blocks, err := pkcs12.ToPEM(b, wxPaySGMchId)
+	if err != nil {
+		log.Fatal("Load WXPaySG Cert Error:", err)
+	}
+
+	var pemData []byte
+	for _, b := range blocks {
+		pemData = append(pemData, pem.EncodeToMemory(b)...)
+	}
+
+	cert, err := tls.X509KeyPair(pemData, pemData)
+	if err != nil {
+		log.Fatal("Load WXPaySG Cert Error:", err)
+	}
+
+	wxPaySGCertTlsConfig = &tls.Config{
 		Certificates: []tls.Certificate{cert},
 	}
 

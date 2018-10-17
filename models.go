@@ -49,9 +49,10 @@ const (
 )
 
 const (
-	PAYTYPE_ALIPAY = "alipay"
-	PAYTYPE_WXPAY  = "wxpay"
-	PAYTYPE_PPP    = "ppp"
+	PAYTYPE_ALIPAY  = "alipay"
+	PAYTYPE_WXPAY   = "wxpay"
+	PAYTYPE_WXPAYSG = "wxpaysg"
+	PAYTYPE_PPP     = "ppp"
 )
 
 type rsys struct {
