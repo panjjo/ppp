@@ -54,7 +54,15 @@ func main() {
 	//wxpaysg
 	config.Mod = ppp.PAYTYPE_WXPAYSG
 	if ok, err := config.GetBool("status"); ok {
-		initWXPaySG()
+		if _,err:=config.Get("app"); err==nil {
+			config.Mod = ppp.PAYTYPE_WXPAYSG+":app"
+			initWXPaySG("app")
+		}
+		config.Mod = ppp.PAYTYPE_WXPAYSG
+		if _,err:=config.Get("other"); err==nil {
+			config.Mod = ppp.PAYTYPE_WXPAYSG+":other"
+			initWXPaySG("other")
+		}
 		wxsg := new(ppp.WXPaySG)
 		rpc.Register(wxsg)
 	} else {
@@ -124,9 +132,10 @@ func initWXPay() {
 	wx.Init()
 }
 
-func initWXPaySG() {
+func initWXPaySG(t string) {
 	wx := ppp.WXPaySGInit{
 		ConfigPath: *configPath,
+		Type:t,
 	}
 	var err error
 	if wx.AppId, err = config.GetString("appid"); err != nil {

@@ -13,6 +13,7 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"fmt"
 
 	"golang.org/x/crypto/pkcs12"
 )
@@ -21,8 +22,7 @@ var aliPayPrivateKey *rsa.PrivateKey //应用私钥
 var aliPayPublicKey *rsa.PublicKey   //支付宝公钥
 var wxPaySecretKey string            //微信支付
 var wxPayCertTlsConfig *tls.Config   //微信支付证书tls
-var wxPaySGSecretKey string            //微信支付
-var wxPaySGCertTlsConfig *tls.Config   //微信支付证书tls
+
 
 //WXPay使用私钥做验签
 //用于同步接口请求
@@ -36,9 +36,9 @@ func WXPaySigner(data map[string]string) (signer string) {
 //WXPay使用私钥做验签
 //用于同步接口请求
 //异步回调接口的验证也是用此方法
-func WXPaySGSigner(data map[string]string) (signer string) {
+func WXPaySGSigner(data map[string]string,key string) (signer string) {
 	message := mapSortAndJoin(data, "=", "&", true)
-	message += "&key=" + wxPaySGSecretKey
+	message += "&key=" + key
 	return strings.ToUpper(makeMd5(message))
 }
 
@@ -112,13 +112,13 @@ func loadWXPayCertKey(path string) {
 }
 
 //加载微信支付相关证书信息
-func loadWXPaySGCertKey(path string) {
-	b, err := ioutil.ReadFile(filepath.Join(path, "cert/wxpay_single/cert.p12"))
+func loadWXPaySGCertKey(path string,t string,mchid string) *tls.Config {
+	b, err := ioutil.ReadFile(filepath.Join(path, fmt.Sprintf("cert/wxpay_single/%s_cert.p12",t)))
 	if err != nil {
 		log.Fatal("Load WXPaySG Cert Error:", err)
 	}
 
-	blocks, err := pkcs12.ToPEM(b, wxPaySGMchId)
+	blocks, err := pkcs12.ToPEM(b, mchid)
 	if err != nil {
 		log.Fatal("Load WXPaySG Cert Error:", err)
 	}
@@ -133,8 +133,7 @@ func loadWXPaySGCertKey(path string) {
 		log.Fatal("Load WXPaySG Cert Error:", err)
 	}
 
-	wxPaySGCertTlsConfig = &tls.Config{
+	return  &tls.Config{
 		Certificates: []tls.Certificate{cert},
 	}
-
 }

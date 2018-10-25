@@ -2,6 +2,7 @@ package ppp
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/xml"
 	"fmt"
 	"time"
@@ -9,12 +10,18 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var (
-	wxPaySGUrl       string //微信支付请求地址
-	wxPaySGAppId     string //微信公众号ID
-	wxPaySGMchId     string //微信支付商户号
-	wxPaySGNotifyUrl string //异步通知地址
-)
+var wxPaySGConfigMap map[string]wxPaySGConfig
+
+type wxPaySGConfig struct {
+	Url        string //微信支付请求地址
+	AppId      string //微信公众号ID
+	MchId      string //微信支付商户号
+	NotifyUrl  string //异步通知地址
+	ConfigPath string
+	Type       string
+	ApiKey     string
+	Cert       *tls.Config
+}
 
 const (
 	FC_WXPAYSG_TRADEINFO   string = "WXPaySG.TradeInfo" //订单详情
@@ -28,15 +35,24 @@ type WXPaySGInit struct {
 	ApiKey     string
 	ConfigPath string
 	NotifyUrl  string
+	Type       string
 }
 
 func (w *WXPaySGInit) Init() {
-	wxPaySGUrl = w.Url
-	wxPaySGAppId = w.AppId
-	wxPaySGMchId = w.MchId
-	wxPaySGSecretKey = w.ApiKey
-	wxPaySGNotifyUrl = w.NotifyUrl
-	loadWXPaySGCertKey(w.ConfigPath)
+	if wxPaySGConfigMap == nil {
+		wxPaySGConfigMap = map[string]wxPaySGConfig{}
+	}
+	wxPaySGConfigMap[w.Type] = wxPaySGConfig{
+		AppId:      w.AppId,
+		Url:        w.Url,
+		MchId:      w.MchId,
+		ApiKey:     w.ApiKey,
+		ConfigPath: w.ConfigPath,
+		NotifyUrl:  w.NotifyUrl,
+		Type:       w.Type,
+		Cert:       loadWXPaySGCertKey(w.ConfigPath, w.Type, w.MchId),
+	}
+	fmt.Printf("%+v,%v\n", wxPaySGConfigMap, w.Type)
 }
 
 //微信支付接口主体
@@ -54,7 +70,8 @@ func (W *WXPaySG) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		request.r.time = getNowSec()
 	}
 
-	q := bson.M{"source": PAYTYPE_WXPAY}
+	// q := bson.M{"source": PAYTYPE_WXPAYSG}
+	q := bson.M{}
 	if request.TradeId != "" {
 		q["tradeid"] = request.TradeId
 	}
@@ -69,16 +86,24 @@ func (W *WXPaySG) TradeInfo(request *TradeRequest, resp *TradeResult) error {
 		resp.Data = trade
 		return nil
 	}
+	var config wxPaySGConfig
+	switch trade.Source {
+	case PAYTYPE_WXPAYSG + APPPAYPARAMS:
+		config = wxPaySGConfigMap["app"]
+	default:
+		config = wxPaySGConfigMap["other"]
+
+	}
 	params := wxTradeInfoRequest{
-		AppId:      wxPayAppId,
-		MchId:      wxPayMchId,
+		AppId:      config.AppId,
+		MchId:      config.MchId,
 		NonceStr:   randomString(32),
 		OutTradeId: request.OutTradeId,
 		TradeId:    request.TradeId,
 	}
 	// params.SubMchId = request.r.mchid
 	// params.SubAppId = auth.AppId
-	params.Sign = WXPaySGSigner(structToMap(params, "xml"))
+	params.Sign = WXPaySGSigner(structToMap(params, "xml"), config.ApiKey)
 	postBody, err := xml.Marshal(params)
 	if err != nil {
 		resp.Code = SysErrParams
@@ -131,40 +156,42 @@ func (W *WXPaySG) PayParams(request *WapPayRequest, resp *Response) error {
 	Log.DEBUG.Printf("WXSGPay api:WapPayParams,request:%+v", request)
 	defer Log.DEBUG.Printf("WXSGPay api:WapPayParams,response:%+v", resp)
 	var tradeType string
+	var config wxPaySGConfig
 	switch request.TradeType {
 	case APPPAYPARAMS:
 		tradeType = "APP"
+		config = wxPaySGConfigMap["app"]
+	case WAPPAYPARAMS:
+		tradeType = "NATIVE"
+		config = wxPaySGConfigMap["other"]
 	}
 	if request.r.time == 0 {
 		request.r.time = getNowSec()
 	}
 
 	params := wxWapPayRequest{
-		AppId: wxPayAppId,
-		MchId: wxPayMchId,
-		// SubMchId:   auth.MchId,
-		// SubAppId:   auth.AppId,
+		AppId:      config.AppId,
+		MchId:      config.MchId,
 		NonceStr:   randomString(32),
 		Body:       request.ItemDes,
 		OutTradeId: request.OutTradeId,
 		Amount:     fmt.Sprintf("%d", request.Amount),
 		IPAddr:     request.IPAddr,
-		NotifyUrl:  wxPayNotifyUrl,
+		NotifyUrl:  config.NotifyUrl,
 		TradeType:  tradeType,
 		OpenId:     request.OpenId,
-		SubOpenId:  request.SubOpenId,
 		SceneInfo: string(jsonEncode(map[string]interface{}{
 			"h5_info": map[string]interface{}{"type": "Wap", "wap_url": request.Scene.Url, "wap_name": request.Scene.Name},
 		})),
 	}
-	if params.TradeType == JSPAYPARAMS {
-		if params.OpenId == "" && params.SubOpenId == "" {
-			resp.Code = SysErrParams
-			resp.SourceData = fmt.Sprintf("trade type:%s,openid or sub_openid must have one", params.TradeType)
+	// if params.TradeType == JSPAYPARAMS {
+	// 	if params.OpenId == "" && params.SubOpenId == "" {
+	// 		resp.Code = SysErrParams
+	// 		resp.SourceData = fmt.Sprintf("trade type:%s,openid or sub_openid must have one", params.TradeType)
 
-		}
-	}
-	params.Sign = WXPaySigner(structToMap(params, "xml"))
+	// 	}
+	// }
+	params.Sign = WXPaySGSigner(structToMap(params, "xml"), config.ApiKey)
 	Log.ERROR.Printf("wxpay params:%+v", params)
 	postBody, err := xml.Marshal(params)
 	if err != nil {
@@ -175,7 +202,7 @@ func (W *WXPaySG) PayParams(request *WapPayRequest, resp *Response) error {
 	var result interface{}
 	var next int
 	for getNowSec()-request.r.time < 30 {
-		result, next, err = W.request(wxPayUrl+"/pay/unifiedorder", postBody)
+		result, next, err = W.request(config.Url+"/pay/unifiedorder", postBody)
 		resp.SourceData = string(jsonEncode(result))
 		if err != nil {
 			if v, ok := wxErrMap[err.Error()]; ok {
@@ -195,20 +222,23 @@ func (W *WXPaySG) PayParams(request *WapPayRequest, resp *Response) error {
 			//成功返回
 			tmpresult := wxWapPayResult{}
 			xml.Unmarshal(result.([]byte), &tmpresult)
-			if params.TradeType == JSPAYPARAMS {
-				jsParams := map[string]string{
-					"appId":     wxPayAppId,
-					"timeStamp": fmt.Sprintf("%d", getNowSec()),
-					"nonceStr":  randomString(32),
-					"package":   "prepay_id=" + tmpresult.PrePayId,
-					"signType":  "MD5",
+			switch request.TradeType {
+			case APPPAYPARAMS:
+				appParams := map[string]string{
+					"appid":     config.AppId,
+					"partnerid": config.MchId,
+					"prepayid":  tmpresult.PrePayId,
+					"package":   "Sign=WXPay",
+					"noncestr":  randomString(32),
+					"timestamp": fmt.Sprintf("%d", getNowSec()),
 				}
-				jsParams["paySign"] = WXPaySigner(jsParams)
-				resp.SourceData = string(jsonEncode(jsParams))
-			} else {
+				appParams["sign"] = WXPaySGSigner(appParams, config.ApiKey)
+				resp.SourceData = string(jsonEncode(appParams))
+			default:
 				resp.SourceData = string(jsonEncode(map[string]string{
 					"perpay_id": tmpresult.PrePayId,
 					"mweb_url":  tmpresult.MWEBURL,
+					"code_url":  tmpresult.CodeUrl,
 				}))
 			}
 
@@ -218,7 +248,7 @@ func (W *WXPaySG) PayParams(request *WapPayRequest, resp *Response) error {
 				Status:     0,
 				Type:       1,
 				Amount:     request.Amount,
-				Source:     PAYTYPE_WXPAY,
+				Source:     PAYTYPE_WXPAYSG + request.TradeType,
 				UpTime:     getNowSec(),
 				Ex:         request.Ex,
 				Id:         randomTimeString(), // PPPID

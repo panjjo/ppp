@@ -517,14 +517,14 @@ func (A *AliPay) PayParams(request *WapPayRequest, resp *Response) error {
 	var productCode, method string
 	switch request.TradeType {
 	case WAPPAYPARAMS:
-		productCode = "QUICK_WAP_WAY"
-		method = "alipay.trade.wap.pay"
+		productCode = "FAST_INSTANT_TRADE_PAY"
+		method = "alipay.trade.page.pay"
 	case APPPAYPARAMS:
 		productCode = "QUICK_MSECURITY_PAY"
 		method = "alipay.trade.app.pay"
 	default:
-		productCode = "QUICK_WAP_WAY"
-		method = "alipay.trade.wap.pay"
+		productCode = "FAST_INSTANT_TRADE_PAY"
+		method = "alipay.trade.page.pay"
 	}
 	params := map[string]interface{}{
 		"body":            request.ItemDes,
