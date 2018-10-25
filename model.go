@@ -1,8 +1,8 @@
-package ppp2
+package ppp
 
 import (
 	"io/ioutil"
-	"ppp2/db"
+	"ppp/db"
 
 	yaml "gopkg.in/yaml.v1"
 )

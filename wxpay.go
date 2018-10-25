@@ -1,4 +1,4 @@
-package ppp2
+package ppp
 
 const (
 	// WXPAY 微信支付服务商的标识

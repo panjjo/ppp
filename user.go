@@ -1,4 +1,4 @@
-package ppp2
+package ppp
 
 const (
 	userTable = "users"

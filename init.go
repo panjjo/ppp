@@ -1,7 +1,7 @@
-package ppp2
+package ppp
 
 import (
-	"ppp2/db"
+	"ppp/db"
 
 	"github.com/panjjo/log4go"
 )

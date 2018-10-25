@@ -2,33 +2,33 @@ package main
 
 import (
 	"fmt"
-	"ppp2"
+	"ppp"
 )
 
-var alipay *ppp2.AliPay
+var alipay *ppp.AliPay
 
 func main1() {
 
-	config := ppp2.LoadConfig("/Users/panjjo/work/go/src/ppp2/config.yml")
-	ppp2.NewLogger(config.Sys.LogLevel)
-	ppp2.NewDBPool(&config.DB)
+	config := ppp.LoadConfig("/Users/panjjo/work/go/src/ppp/config.yml")
+	ppp.NewLogger(config.Sys.LogLevel)
+	ppp.NewDBPool(&config.DB)
 
 	if !config.AliPay.Use {
 		return
 	}
-	alipay = ppp2.NewAliPay(config.AliPay)
+	alipay = ppp.NewAliPay(config.AliPay)
 	// auth()
 	// authSigner()
 	// barPay()
 	// tradeInfo()
 	// cancel()
 	// refund()
-	// payParams(ppp2.APPPAY)
-	// payParams(ppp2.WEBPAY)
+	// payParams(ppp.APPPAY)
+	// payParams(ppp.WEBPAY)
 }
 
-func payParams(t ppp2.TradeType) {
-	fmt.Println(alipay.PayParams(&ppp2.TradeParams{
+func payParams(t ppp.TradeType) {
+	fmt.Println(alipay.PayParams(&ppp.TradeParams{
 		OutTradeID: "123456",
 		TradeName:  "测试",
 		Amount:     7520,
@@ -39,7 +39,7 @@ func payParams(t ppp2.TradeType) {
 }
 
 func refund() {
-	fmt.Println(alipay.Refund(&ppp2.Refund{
+	fmt.Println(alipay.Refund(&ppp.Refund{
 		OutRefundID: "123456",
 		SourceID:    "test12345",
 		Amount:      101,
@@ -49,21 +49,21 @@ func refund() {
 }
 
 func cancel() {
-	fmt.Println(alipay.Cancel(&ppp2.Trade{
+	fmt.Println(alipay.Cancel(&ppp.Trade{
 		MchID:      "2088102169330843",
 		OutTradeID: "test12345",
 	}))
 }
 
 func tradeInfo() {
-	fmt.Println(alipay.TradeInfo(&ppp2.Trade{
+	fmt.Println(alipay.TradeInfo(&ppp.Trade{
 		MchID:      "2088102169330843",
 		OutTradeID: "test12345",
 	}, true))
 }
 
 func barPay() {
-	fmt.Println(alipay.BarPay(&ppp2.BarPay{
+	fmt.Println(alipay.BarPay(&ppp.BarPay{
 		OutTradeID: "test12345",
 		Amount:     7520,
 		AuthCode:   "284087546000708768",
@@ -78,5 +78,5 @@ func auth() {
 }
 
 func authSigner() {
-	fmt.Println(alipay.AuthSigned(&ppp2.Auth{MchID: "2088102169330843", Status: 1, Account: "admin@shengyun.org"}))
+	fmt.Println(alipay.AuthSigned(&ppp.Auth{MchID: "2088102169330843", Status: 1, Account: "admin@shengyun.org"}))
 }

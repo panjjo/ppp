@@ -1,4 +1,4 @@
-module ppp2
+module ppp
 
 require (
 	github.com/agtorre/gocolorize v1.0.0 // indirect

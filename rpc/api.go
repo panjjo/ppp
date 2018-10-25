@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"log"
 	"net"
 	"net/http"
+	"path/filepath"
 
-	"ppp2"
+	"ppp"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -18,7 +20,8 @@ type Response struct {
 	Data interface{}
 }
 
-var alipay *ppp2.AliPay
+var alipay *ppp.AliPay
+var configPath = flag.String("path", "", "配置文件地址")
 
 func jsonEncode(ob interface{}) []byte {
 	if b, err := json.Marshal(ob); err == nil {
@@ -37,17 +40,18 @@ func Auth(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 }
 
 func main1() {
-	alipay = &ppp2.AliPay{}
+	alipay = &ppp.AliPay{}
+	flag.Parse()
 
-	config := ppp2.LoadConfig("/Users/panjjo/work/go/src/ppp2/config.yml")
-	ppp2.NewLogger(config.Sys.LogLevel)
-	ppp2.NewDBPool(&config.DB)
+	config := ppp.LoadConfig(filepath.Join(*configPath, "./config.yml"))
+	ppp.NewLogger(config.Sys.LogLevel)
+	ppp.NewDBPool(&config.DB)
 
 	router := httprouter.New()
 	router.GET("/alipay/auth", Auth)
 
 	l, e := net.Listen("tcp", config.Sys.ADDR)
-	ppp2.Log.INFO.Printf("Listen at:%s", config.Sys.ADDR)
+	ppp.Log.INFO.Printf("Listen at:%s", config.Sys.ADDR)
 	if e != nil {
 		log.Fatal("Listen error:", e)
 	}
