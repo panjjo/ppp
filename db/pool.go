@@ -1,4 +1,4 @@
-package pool
+package db
 
 import (
 	"container/list"
@@ -7,18 +7,48 @@ import (
 	"time"
 )
 
+// Config 数据库配置文件
+type Config struct {
+	Addr      string `yaml:"addr"`
+	DB        string `yaml:"db"`
+	MaxActive int    `yaml:"maxActive"`
+	Type      string `yaml:"type"`
+}
+
+// Conn 数据库连接接口
+// 默认使用的是mongodb，可自行实现对应接口更换数据库
+type Conn interface {
+	// Ping 检查连接是否可用
+	Ping() error
+	// Close 关闭连接
+	Close() error
+
+	p(*Pool)
+	time() time.Time
+	setTime(time.Time)
+
+	// FindOne 查询一个
+	FindOne(tb string, query, res interface{}) interface{}
+	// Update 更新默认全部
+	Update(tb string, query, update interface{}) error
+	// Save 保存
+	Save(tb string, data interface{}) error
+	// UpSert 存在更新，不存在新增
+	UpSert(tb string, query, update interface{}) (interface{}, error)
+}
+
 // Pool maintains a pool of connections. The application calls the Get method
 // to get a connection from the pool and the connection's Close method to
 // return the connection's resources to the pool.
 type Pool struct {
-	Dial func() (*Conn, error)
+	Dial func() (Conn, error)
 
 	// TestOnBorrow is an optional application supplied function for checking
 	// the health of an idle connection before the connection is used again by
 	// the application. Argument t is the time that the connection was returned
 	// to the pool. If the function returns an error, then the connection is
 	// closed.
-	TestOnBorrow func(c *Conn) error
+	TestOnBorrow func(c Conn) error
 
 	// Maximum number of idle connections in the pool.
 	MaxIdle int
@@ -51,12 +81,12 @@ type Pool struct {
 // error handling to the first use of the connection. If there is an error
 // getting an underlying connection, then the connection Err, Do, Send, Flush
 // and Receive methods return that error.
-func (p *Pool) Get() *Conn {
+func (p *Pool) Get() Conn {
 	c, err := p.get()
 	if err != nil {
 		return nil
 	}
-	c.p = p
+	c.p(p)
 	return c
 }
 
@@ -80,7 +110,7 @@ func (p *Pool) Close() error {
 	}
 	p.mu.Unlock()
 	for e := idle.Front(); e != nil; e = e.Next() {
-		e.Value.(Conn).conn.Close()
+		e.Value.(Conn).Close()
 	}
 	return nil
 }
@@ -96,7 +126,7 @@ func (p *Pool) release() {
 
 // get prunes stale connections and returns a connection from the idle list or
 // creates a new connection.
-func (p *Pool) get() (*Conn, error) {
+func (p *Pool) get() (Conn, error) {
 	p.mu.Lock()
 
 	// Prune stale connections.
@@ -106,14 +136,14 @@ func (p *Pool) get() (*Conn, error) {
 			if e == nil {
 				break
 			}
-			ic := e.Value.(*Conn)
-			if ic.t.Add(timeout).After(time.Now()) {
+			ic := e.Value.(Conn)
+			if ic.time().Add(timeout).After(time.Now()) {
 				break
 			}
 			p.idle.Remove(e)
 			p.release()
 			p.mu.Unlock()
-			ic.conn.Close()
+			ic.Close()
 			p.mu.Lock()
 		}
 	}
@@ -126,14 +156,14 @@ func (p *Pool) get() (*Conn, error) {
 			if e == nil {
 				break
 			}
-			ic := e.Value.(*Conn)
+			ic := e.Value.(Conn)
 			p.idle.Remove(e)
 			test := p.TestOnBorrow
 			p.mu.Unlock()
 			if test == nil || test(ic) == nil {
 				return ic, nil
 			}
-			ic.conn.Close()
+			ic.Close()
 			p.mu.Lock()
 			p.release()
 		}
@@ -170,13 +200,13 @@ func (p *Pool) get() (*Conn, error) {
 	}
 }
 
-func (p *Pool) put(c *Conn) error {
+func (p *Pool) put(c Conn) error {
 	p.mu.Lock()
 	if !p.closed {
-		c.t = time.Now()
+		c.setTime(time.Now())
 		p.idle.PushFront(c)
 		if p.idle.Len() > p.MaxIdle {
-			c = p.idle.Remove(p.idle.Back()).(*Conn)
+			c = p.idle.Remove(p.idle.Back()).(Conn)
 		} else {
 			c = nil
 		}
@@ -192,6 +222,6 @@ func (p *Pool) put(c *Conn) error {
 
 	p.release()
 	p.mu.Unlock()
-	c.conn.Close()
+	c.Close()
 	return nil
 }

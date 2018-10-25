@@ -1,871 +1,169 @@
-package ppp
-
-import (
-	"bytes"
-	"encoding/xml"
-	"fmt"
-	"time"
-
-	"gopkg.in/mgo.v2/bson"
-)
-
-var (
-	wxPayUrl       string //微信支付请求地址
-	wxPayAppId     string //微信公众号ID
-	wxPayMchId     string //微信支付商户号
-	wxPayNotifyUrl string //异步通知地址
-)
+package ppp2
 
 const (
-	FC_WXPAY_BARCODEPAY     string = "WXPay.BarCodePay"     //条码支付
-	FC_WXPAY_CANCEL         string = "WXPay.Cancel"         //取消交易
-	FC_WXPAY_REFUND         string = "WXPay.Refund"         //退款
-	FC_WXPAY_AUTHSIGNED     string = "WXPay.AuthSigned"     //签约接口
-	FC_WXPAY_TRADEINFO      string = "WXPay.TradeInfo"      //订单详情
-	FC_WXPAY_SBKEY          string = "WXPay.SandboxSignKey" //订单详情
-	FC_WXPAY_WAPTRADEPARAMS string = "WXPay.WapPayParams"   //网站支付参数组装
+	// WXPAY 微信支付服务商的标识
+	WXPAY string = "wxpay"
 )
 
-type WXPayInit struct {
-	AppId      string
-	Url        string
-	MchId      string
-	ApiKey     string
-	ConfigPath string
-	NotifyUrl  string
-}
-
-func (w *WXPayInit) Init() {
-	wxPayUrl = w.Url
-	wxPayAppId = w.AppId
-	wxPayMchId = w.MchId
-	wxPaySecretKey = w.ApiKey
-	wxPayNotifyUrl = w.NotifyUrl
-	loadWXPayCertKey(w.ConfigPath)
-}
-
-//微信支付接口主体
+// WXPay 微信支付服务商模式主体
+// 微信支付服务商模式
+// 服务商模式与单商户模式区别只是多了一个 子商户权限，其余接口结构返回完全一致
 type WXPay struct {
+	*WXPaySingle
+	ws *WXPaySingle
 }
 
-type wxPaySandboxSignKey struct {
-	XMLName  xml.Name `xml:"xml"`
-	MchId    string   `xml:"mch_id"`    // 商户号
-	NonceStr string   `xml:"nonce_str"` // 随机字符串
-	Sign     string   `xml:"sign"`      // 签名
-}
-type wxPaySandboxSignKeyResult struct {
-	XMLName        xml.Name `xml:"xml"`
-	ReturnCode     string   `xml:"return_code"`     // 返回状态码
-	ReturnMsg      string   `xml:"return_msg"`      // 返回信息
-	SandboxSignKey string   `xml:"sandbox_signkey"` //key
-
+// NewWXPay 获取微信实例
+func NewWXPay(config Config) *WXPay {
+	ws := NewWXPaySingle(config)
+	wx := &WXPay{ws, ws}
+	wx.t = WXPAY
+	return wx
 }
 
-// 微信验收获取沙箱key
-func (W *WXPay) SandboxSignKey(mchid string, resp *Response) error {
-	Log.DEBUG.Printf("WXPay api:SandboxSignKey,request:%+v", mchid)
-	defer Log.DEBUG.Printf("WXPay api:SandboxSignKey,response:%+v", resp)
-	params := wxPaySandboxSignKey{
-		MchId:    mchid,
-		NonceStr: randomString(32),
+// BarPay 商户主动扫码支付
+// 服务商模式调用
+// 真实处理为 WXPaySingle.BarPay
+func (W *WXPay) BarPay(req *BarPay) (trade *Trade, e Error) {
+	auth := W.token(req.UserID, req.MchID)
+	if auth.Status != AuthStatusSucc {
+		//授权错误
+		e.Code = AuthErr
+		return
 	}
-	params.Sign = WXPaySigner(structToMap(params, "xml"))
-	postBody, err := xml.Marshal(params)
-	if err != nil {
-		resp.Code = SysErrParams
-		resp.SourceData = err.Error()
-	}
+	return W.ws.BarPay(req)
+}
 
-	result, _, err := W.request(wxPayUrl+"/pay/getsignkey", postBody)
-	if err == nil {
-		//成功
-		tmp := wxPaySandboxSignKeyResult{}
-		xml.Unmarshal(result.([]byte), &tmp)
-		resp.SourceData = tmp.SandboxSignKey
+// Refund 订单退款
+// 服务商模式调用
+// 真实处理为 WXPaySingle.Refund
+func (W *WXPay) Refund(req *Refund) (refund *Refund, e Error) {
+	auth := W.token(req.UserID, req.MchID)
+	if auth.Status != AuthStatusSucc {
+		//授权错误
+		e.Code = AuthErr
+		return
+	}
+	return W.ws.Refund(req)
+}
+
+// Cancel 撤销订单
+// 服务商模式调用
+// 真实处理为 WXPaySingle.Cancel
+func (W *WXPay) Cancel(req *Trade) (e Error) {
+	auth := W.token(req.UserID, req.MchID)
+	if auth.Status != AuthStatusSucc {
+		//授权错误
+		e.Code = AuthErr
+		return
+	}
+	return W.ws.Cancel(req)
+}
+
+// TradeInfo 获取订单详情
+// 服务商模式调用
+// 真实处理为 WXPaySingle.TradeInfo
+func (W *WXPay) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) {
+	auth := W.token(req.UserID, req.MchID)
+	if auth.Status != AuthStatusSucc {
+		//授权错误
+		e.Code = AuthErr
+		return
+	}
+	return W.ws.TradeInfo(req, sync)
+}
+
+// PayParams 获取支付参数
+// 用于前段请求，不想暴露证书的私密信息的可用此方法组装请求参数，前端只负责请求
+// 支持的有 JS支付，手机app支付，公众号支付
+// APP支付紧支持单商户模式，公众号支付，扫码支付等支持服务商和单商户模式
+func (W *WXPay) PayParams(req *TradeParams) (data *PayParams, e Error) {
+	auth := W.token(req.UserID, req.MchID)
+	if auth.Status != AuthStatusSucc {
+		//授权错误
+		e.Code = AuthErr
+		return
+	}
+	return W.ws.PayParams(req)
+}
+
+// BindUser 用户绑定
+// 将Auth授权绑定到User上去
+// 多个用户可使用同一个Auth，可有效防止重复授权导致多个Auth争取token问题
+// 绑定了之后 调用其他接口可传UserID查找对应Auth
+// 如果业务逻辑不需要绑定，就不要绑定，调用其他接口传MchID即可
+func (W *WXPay) BindUser(req *User) (user *User, e Error) {
+	if req.UserID == "" || req.MchID == "" {
+		e.Code = SysErrParams
+		e.Msg = "userid mchid 必传"
+		return
+	}
+	auth := getToken(req.MchID, W.t)
+	if auth.ID == "" {
+		// 授权不存在
+		e.Code = AuthErr
+		return
+	}
+	user = getUser(req.UserID, W.t)
+	if user.ID != "" {
+		//存在更新授权
+		user.MchID = auth.MchID
+		user.Status = auth.Status
+		updateUser(map[string]interface{}{"userid": user.UserID}, user)
 	} else {
-		resp.Code = SysErrVerify
-		resp.SourceData = err.Error()
-	}
-	return nil
-}
-
-type wxPayRequest struct {
-	XMLName xml.Name `xml:"xml"`
-	// required
-	AppId          string `xml:"appid"`            // 公众账号ID
-	MchId          string `xml:"mch_id"`           // 商户号
-	SubMchId       string `xml:"sub_mch_id"`       // 子商户ID
-	SubAppId       string `xml:"sub_appid"`        //子商户公众号ID
-	NonceStr       string `xml:"nonce_str"`        // 随机字符串
-	Body           string `xml:"body"`             // 商品描述
-	OutTradeId     string `xml:"out_trade_no"`     // 商户订单号
-	Amount         int64  `xml:"total_fee"`        // 订单金额
-	AuthCode       string `xml:"auth_code"`        // 授权码
-	SpbillCreateIp string `xml:"spbill_create_ip"` // 终端IP
-	Sign           string `xml:"sign"`             // 签名
-}
-type wxTradeResult struct {
-	XMLName xml.Name `xml:"xml"`
-
-	ReturnCode string `xml:"return_code"` // 返回状态码
-	ReturnMsg  string `xml:"return_msg"`  // 返回信息
-
-	// when return_code == SUCCESS
-	AppId      string `xml:"appid"`        // 公众账号ID
-	MchId      string `xml:"mch_id"`       // 商户号
-	DeviceInfo string `xml:"device_info"`  // 设备号
-	NonceStr   string `xml:"nonce_str"`    // 随机字符串
-	Sign       string `xml:"sign"`         // 签名
-	ResultCode string `xml:"result_code"`  // 业务结果
-	ErrCode    string `xml:"err_code"`     // 错误代码
-	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
-
-	// when return_code == result_code == SUCCESS
-	OpenId             string `xml:"openid"`     // 用户标识
-	TradeType          string `xml:"trade_type"` // 交易类型
-	Amount             int64  `xml:"total_fee"`  // 订单金额
-	Status             string `xml:"trade_state"`
-	SettlementTotalFee int64  `xml:"settlement_total_fee"` // 应结订单金额
-	CouponFee          int64  `xml:"coupon_fee"`           // 代金券金额
-	CashFeeType        string `xml:"cash_fee_type"`        // 现金支付货币类型
-	CashFee            int64  `xml:"cash_fee"`             // 现金支付金额
-	TradeId            string `xml:"transaction_id"`       // 微信支付订单号
-	OutTradeId         string `xml:"out_trade_no"`         // 用户订单号
-	Attach             string `xml:"attach"`               // 商家数据包
-	TimeEnd            string `xml:"time_end"`             // 支付完成时间
-}
-
-// 统一收单支付接口
-// DOC:https://pay.weixin.qq.com/wiki/doc/api/micropay_sl.php?chapter=9_10&index=1
-// 传入参数为 BarCodePayRequest格式
-// 返回参数为 TradeResult
-// userid 为收款方自定义id,应存在签约授权成功后保存的对应关系
-func (W *WXPay) BarCodePay(request *BarCodePayRequest, resp *TradeResult) error {
-	Log.DEBUG.Printf("WXPay api:BarCodePay,request:%+v", request)
-	defer Log.DEBUG.Printf("WXPay api:BarCodePay,response:%+v", resp)
-	if request.r.time == 0 {
-		request.r.time = getNowSec()
-	}
-	params := wxPayRequest{
-		AppId:          wxPayAppId,
-		MchId:          wxPayMchId,
-		NonceStr:       randomString(32),
-		Body:           request.TradeName,
-		OutTradeId:     request.OutTradeId,
-		Amount:         request.Amount,
-		AuthCode:       request.AuthCode,
-		SpbillCreateIp: request.IPAddr,
-	}
-	auth := W.token(request.UserId, request.r.mchid)
-	if auth.Status != AuthStatusSucc {
-		resp.Code = AuthErrNotSigned
-		return nil
-	}
-	request.r.mchid = auth.MchId
-	params.SubMchId = request.r.mchid
-	params.SubAppId = auth.AppId
-	params.Sign = WXPaySigner(structToMap(params, "xml"))
-	postBody, err := xml.Marshal(params)
-	if err != nil {
-		resp.Code = SysErrParams
-		resp.SourceData = err.Error()
-		return nil
-	}
-	//请求并除错
-	var result interface{}
-	var next int
-	var needCancel, paySucc bool
-	var trade TradeResult
-	for getNowSec()-request.r.time < 30 {
-		result, next, err = W.request(wxPayUrl+"/pay/micropay", postBody)
-		resp.SourceData = string(jsonEncode(result))
-		if err != nil {
-			if v, ok := wxErrMap[err.Error()]; ok {
-				resp.Code = v
-			} else {
-				resp.Code = PayErr
-			}
-			if next == 2 {
-				//系统支付异常
-				W.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &trade)
-				if trade.Code == TradeErrNotFound {
-					//订单不存在，重试
-					time.Sleep(1 * time.Second)
-				} else if trade.Data.Status == 1 {
-					paySucc = true
-					//存在支付成功
-					break
-				} else {
-					//其他情况撤销
-					needCancel = true
-				}
-			} else if next == 3 {
-				needCancel = true
-				//等待用户输入密码
-				//循环
-				//获取一次一直到成功
-				for getNowSec()-request.r.time < 30 {
-					W.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &trade)
-					if trade.Code == 0 && trade.Data.Status == TradeStatusSucc {
-						//订单存在且支付
-						//取消撤销
-						needCancel = false
-						paySucc = true
-						break
-					}
-					time.Sleep(5 * time.Second)
-				}
-				break
-			} else if next == 0 {
-				//其他错误，直接返回
-				break
-			}
-			// -1
-			//网络异常 1s后重试
-			time.Sleep(1 * time.Second)
-		} else {
-			//支付成功返回
-			paySucc = true
-			break
+		//保存授权
+		user = &User{
+			UserID: req.UserID,
+			MchID:  req.MchID,
+			Status: auth.Status,
+			ID:     randomTimeString(),
+			From:   W.t,
 		}
+		saveUser(user)
 	}
-	//支付成功
-	if paySucc {
-		//支付成功确认
-		W.TradeInfo(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &trade)
-		if trade.Data.Status == TradeStatusSucc {
-			resp.Data = Trade{
-				Id:         randomTimeString(),
-				Amount:     trade.Data.Amount,
-				OutTradeId: request.OutTradeId,
-				Source:     PAYTYPE_WXPAY,
-				PayTime:    request.r.time,
-				UpTime:     request.r.time,
-				Type:       1,
-				Status:     TradeStatusSucc,
-				TradeId:    trade.Data.TradeId,
-			}
-			resp.Code = Succ
-			saveTrade(resp.Data)
-		} else {
-			needCancel = true
-			resp.Code = PayErr
-		}
-	}
-	//撤销
-	if needCancel {
-		response := Response{}
-		W.Cancel(&TradeRequest{OutTradeId: request.OutTradeId, r: request.r}, &response)
-	}
-	return nil
+	return
 }
 
-type wxRefundRequest struct {
-	XMLName xml.Name `xml:"xml"`
-
-	AppId    string `xml:"appid"`      // 公众账号ID
-	MchId    string `xml:"mch_id"`     // 商户号
-	SubMchId string `xml:"sub_mch_id"` // 子商户ID
-	SubAppId string `xml:"sub_appid"`  //子商户公众账号ID
-	NonceStr string `xml:"nonce_str"`  // 随机字符串
-
-	OutTradeId string `xml:"out_trade_no"` // 商户订单号
-	Amount     int64  `xml:"total_fee"`    // 订单金额
-	Sign       string `xml:"sign"`         // 签名
-
-	RefundId     string `xml:"refund_id"`      //商户退款单号
-	RefundAmount int64  `xml:"refund_fee"`     // 退款金额
-	RefundDesc   string `xml:"refund_desc"`    //退款备注
-	TradeId      string `xml:"transaction_id"` //微信订单号
-	OutRefundId  string `xml:"out_refund_no"`
-}
-type wxRefundResult struct {
-	XMLName xml.Name `xml:"xml"`
-
-	ReturnCode string `xml:"return_code"` // 返回状态码
-	ReturnMsg  string `xml:"return_msg"`  // 返回信息
-
-	// when return_code == SUCCESS
-	AppId      string `xml:"appid"`        // 公众账号ID
-	MchId      string `xml:"mch_id"`       // 商户号
-	DeviceInfo string `xml:"device_info"`  // 设备号
-	NonceStr   string `xml:"nonce_str"`    // 随机字符串
-	Sign       string `xml:"sign"`         // 签名
-	ResultCode string `xml:"result_code"`  // 业务结果
-	ErrCode    string `xml:"err_code"`     // 错误代码
-	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
-
-	TradeId      string `xml:"transaction_id"`
-	OutTradeId   string `xml:"out_trade_no"`
-	OutRefundId  string `xml:"out_refund_no"`
-	RefundId     string `xml:"refund_id"`
-	RefundAmount int64  `xml:"refund_fee"`
-}
-
-// 交易退款
-// DOC:https://pay.weixin.qq.com/wiki/doc/api/micropay_sl.php?chapter=9_4
-func (W *WXPay) Refund(request *RefundRequest, resp *TradeResult) error {
-	Log.DEBUG.Printf("WXPay api:Refund,request:%+v", request)
-	defer Log.DEBUG.Printf("WXPay api:Refund,response:%+v", resp)
-	if request.r.time == 0 {
-		request.r.time = getNowSec()
-	}
-	if request.OutRefundId == "" {
-		resp.Code = SysErrParams
-		resp.SourceData = "out_refund_id"
-		return nil
-	}
-	params := wxRefundRequest{
-		AppId:        wxPayAppId,
-		MchId:        wxPayMchId,
-		NonceStr:     randomString(32),
-		OutTradeId:   request.OutTradeId,
-		OutRefundId:  request.OutRefundId,
-		RefundAmount: request.Amount,
-		RefundDesc:   request.Memo,
-	}
-	trade := TradeResult{}
-	W.TradeInfo(&TradeRequest{r: request.r, UserId: request.UserId, OutTradeId: request.OutTradeId}, &trade)
-	if trade.Code != 0 {
-		resp.Code = trade.Code
-		resp.SourceData = trade.SourceData
-		return nil
-	}
-	if trade.Data.Id == "" {
-		resp.Code = TradeErrNotFound
-		return nil
-	}
-	params.TradeId = trade.Data.TradeId
-	params.Amount = trade.Data.Amount
-
-	auth := W.token(request.UserId, request.r.mchid)
-	if auth.Status != AuthStatusSucc {
-		resp.Code = AuthErrNotSigned
-		return nil
-	}
-
-	request.r.mchid = auth.MchId
-	params.SubMchId = request.r.mchid
-	params.SubAppId = auth.AppId
-	params.Sign = WXPaySigner(structToMap(params, "xml"))
-	postBody, err := xml.Marshal(params)
-	if err != nil {
-		resp.Code = SysErrParams
-		resp.SourceData = err.Error()
-		return nil
-	}
-	var result interface{}
-	var next int
-	for getNowSec()-request.r.time < 30 {
-		result, next, err = W.requestTls(wxPayUrl+"/secapi/pay/refund", postBody)
-		resp.SourceData = string(jsonEncode(result))
-		if err != nil {
-			if v, ok := aliErrMap[err.Error()]; ok {
-				resp.Code = v
-			} else {
-				resp.Code = RefundErr
-			}
-			switch next {
-			case 2, -1:
-				//网络异常 1s后重试
-				time.Sleep(1 * time.Second)
-			default:
-				//其他错误，直接返回
-				return nil
-			}
-		} else {
-			//成功返回
-			tmpresult := wxRefundResult{}
-			xml.Unmarshal(result.([]byte), &tmpresult)
-			resp.Data = Trade{
-				Id:         randomTimeString(),
-				Amount:     tmpresult.RefundAmount,
-				OutTradeId: request.OutRefundId,
-				Source:     PAYTYPE_WXPAY,
-				Type:       -1,
-				PayTime:    request.r.time,
-				UpTime:     request.r.time,
-				Memo:       request.Memo,
-				Status:     TradeStatusSucc,
-				TradeId:    tmpresult.RefundId,
-				ParentId:   trade.Data.Id,
-			}
-			saveTrade(resp.Data)
-			return nil
-		}
-	}
-	return nil
-}
-
-type wxCancelRequest struct {
-	XMLName xml.Name `xml:"xml"`
-
-	// required
-	AppId      string `xml:"appid"`      // 公众账号ID
-	MchId      string `xml:"mch_id"`     // 商户号
-	SubMchId   string `xml:"sub_mch_id"` // 子商户ID
-	SubAppId   string `xml:"sub_appid"`
-	NonceStr   string `xml:"nonce_str"`    // 随机字符串
-	Body       string `xml:"body"`         // 商品描述
-	OutTradeId string `xml:"out_trade_no"` // 商户订单号
-	TradeId    string `xml:"transaction_id"`
-	Sign       string `xml:"sign"` // 签名
-}
-
-// 交易撤销
-// DOC:https://pay.weixin.qq.com/wiki/doc/api/micropay_sl.php?chapter=9_11&index=3
-// 入参 TradeRequest
-// 出参 Response
-func (W *WXPay) Cancel(request *TradeRequest, resp *Response) error {
-	Log.DEBUG.Printf("WXPay api:Cancel,request:%+v", request)
-	defer Log.DEBUG.Printf("WXPay api:Cancel,response:%+v", resp)
-	if request.r.time == 0 {
-		request.r.time = getNowSec()
-	}
-	params := wxCancelRequest{
-		AppId:      wxPayAppId,
-		MchId:      wxPayMchId,
-		NonceStr:   randomString(32),
-		OutTradeId: request.OutTradeId,
-		TradeId:    request.TradeId,
-	}
-	auth := W.token(request.UserId, request.r.mchid)
-	if auth.Status != AuthStatusSucc {
-		resp.Code = AuthErrNotSigned
-		return nil
-	}
-
-	request.r.mchid = auth.MchId
-	params.SubMchId = request.r.mchid
-	params.SubAppId = auth.AppId
-	params.Sign = WXPaySigner(structToMap(params, "xml"))
-	postBody, err := xml.Marshal(params)
-	if err != nil {
-		resp.Code = SysErrParams
-		resp.SourceData = err.Error()
-		return nil
-	}
-	var result interface{}
-	var next int
-	result, next, err = W.requestTls(wxPayUrl+"/secapi/pay/reverse", postBody)
-	resp.SourceData = string(jsonEncode(result))
-	if err != nil {
-		if v, ok := wxErrMap[err.Error()]; ok {
-			resp.Code = v
-		} else {
-			resp.Code = TradeErr
-		}
-		switch next {
-		case 2, -1:
-			//网络异常 1s后重试
-			time.Sleep(1 * time.Second)
-		default:
-			//其他错误，直接返回
-			return nil
-		}
-	} else {
-		//成功返回
-		return nil
-	}
-	return nil
-}
-
-type wxTradeInfoRequest struct {
-	XMLName xml.Name `xml:"xml"`
-
-	// required
-	AppId      string `xml:"appid"`      // 公众账号ID
-	MchId      string `xml:"mch_id"`     // 商户号
-	SubMchId   string `xml:"sub_mch_id"` // 子商户ID
-	SubAppId   string `xml:"sub_appid"`
-	NonceStr   string `xml:"nonce_str"`    // 随机字符串
-	Body       string `xml:"body"`         // 商品描述
-	OutTradeId string `xml:"out_trade_no"` // 商户订单号
-	TradeId    string `xml:"transaction_id"`
-	Sign       string `xml:"sign"` // 签名
-}
-
-// 获取支付单详情
-// DOC:https://pay.weixin.qq.com/wiki/doc/api/micropay_sl.php?chapter=9_2
-// 传入参数TradeRequest
-// 返回参数TradeResult
-func (W *WXPay) TradeInfo(request *TradeRequest, resp *TradeResult) error {
-	Log.DEBUG.Printf("WXPay api:TradeInfo,request:%+v", request)
-	defer Log.DEBUG.Printf("WXPay api:TradeInfo,response:%+v", resp)
-	if request.r.time == 0 {
-		request.r.time = getNowSec()
-	}
-	auth := W.token(request.UserId, request.r.mchid)
-	if auth.Status != AuthStatusSucc {
-		resp.Code = AuthErrNotSigned
-		return nil
-	}
-	request.r.mchid = auth.MchId
-	q := bson.M{"source": PAYTYPE_WXPAY}
-	if request.TradeId != "" {
-		q["tradeid"] = request.TradeId
-	}
-	if request.OutTradeId != "" {
-		q["outtradeid"] = request.OutTradeId
-	}
-	trade := getTrade(q)
-	if request.DisSync {
-		if trade.Id == "" {
-			resp.Code = TradeErrNotFound
-		}
-		resp.Data = trade
-		return nil
-	}
-	params := wxTradeInfoRequest{
-		AppId:      wxPayAppId,
-		MchId:      wxPayMchId,
-		NonceStr:   randomString(32),
-		OutTradeId: request.OutTradeId,
-		TradeId:    request.TradeId,
-	}
-	params.SubMchId = request.r.mchid
-	params.SubAppId = auth.AppId
-	params.Sign = WXPaySigner(structToMap(params, "xml"))
-	postBody, err := xml.Marshal(params)
-	if err != nil {
-		resp.Code = SysErrParams
-		resp.SourceData = err.Error()
-		return nil
-	}
-	var result interface{}
-	var next int
-	for getNowSec()-request.r.time < 30 {
-		result, next, err = W.request(wxPayUrl+"/pay/orderquery", postBody)
-		resp.SourceData = string(jsonEncode(result))
-		if err != nil {
-			if v, ok := wxErrMap[err.Error()]; ok {
-				resp.Code = v
-			} else {
-				resp.Code = TradeErr
-			}
-			switch next {
-			case 2, -1:
-				//网络异常 1s后重试
-				time.Sleep(1 * time.Second)
-			default:
-				//其他错误，直接返回
-				return nil
-			}
-		} else {
-			//成功返回
-			tmpresult := wxTradeResult{}
-			xml.Unmarshal(result.([]byte), &tmpresult)
-			resp.Data = Trade{
-				OutTradeId: tmpresult.OutTradeId,
-				TradeId:    tmpresult.TradeId,
-				Status:     wxTradeStatusMap[tmpresult.Status],
-				Amount:     tmpresult.Amount,
-				PayTime:    str2Sec("20060102150405", tmpresult.TimeEnd),
-				Id:         trade.Id,
-			}
-			if trade.Id != "" {
-				updateTrade(bson.M{"id": trade.Id}, bson.M{"$set": bson.M{"status": resp.Data.Status, "uptime": getNowSec(), "paytime": resp.Data.PayTime}})
-			}
-			return nil
-		}
-	}
-	return nil
-}
-
-type wxWapPayRequest struct {
-	XMLName xml.Name `xml:"xml"`
-
-	// required
-	AppId      string `xml:"appid"`      // 公众账号ID
-	MchId      string `xml:"mch_id"`     // 商户号
-	SubMchId   string `xml:"sub_mch_id"` // 子商户ID
-	SubAppId   string `xml:"sub_appid"`
-	NonceStr   string `xml:"nonce_str"`    // 随机字符串
-	Body       string `xml:"body"`         // 商品描述
-	OutTradeId string `xml:"out_trade_no"` // 商户订单号
-	Amount     string `xml:"total_fee"`
-	IPAddr     string `xml:"spbill_create_ip"`
-	NotifyUrl  string `xml:"notify_url"`
-	TradeType  string `xml:"trade_type"`
-	SceneInfo  string `xml:"scene_info"`
-	Sign       string `xml:"sign"`        // 签名
-	OpenId     string `xml:"openid"`      //与sub_openid二选一 公众号支付必传，openid为在服务商公众号的id
-	SubOpenId  string `xml:"sub_openid" ` //与openid 二选一 公众号支付必传，sub_openid为在子商户公众号的id
-}
-type wxWapPayResult struct {
-	XMLName xml.Name `xml:"xml"`
-
-	ReturnCode string `xml:"return_code"` // 返回状态码
-	ReturnMsg  string `xml:"return_msg"`  // 返回信息
-
-	// when return_code == SUCCESS
-	AppId      string `xml:"appid"`        // 公众账号ID
-	MchId      string `xml:"mch_id"`       // 商户号
-	DeviceInfo string `xml:"device_info"`  // 设备号
-	NonceStr   string `xml:"nonce_str"`    // 随机字符串
-	Sign       string `xml:"sign"`         // 签名
-	ResultCode string `xml:"result_code"`  // 业务结果
-	ErrCode    string `xml:"err_code"`     // 错误代码
-	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
-
-	TradeType string `xml:"trade_type"`
-	PrePayId  string `xml:"prepay_id"`
-	MWEBURL   string `xml:"mweb_url"`
-	CodeUrl   string `xml:"code_url"`
-}
-
-//网页支付
-//子商户模式
-func (W *WXPay) WapPayParams(request *WapPayRequest, resp *Response) error {
-	Log.DEBUG.Printf("WXPay api:WapPayParams,request:%+v", request)
-	defer Log.DEBUG.Printf("WXPay api:WapPayParams,response:%+v", resp)
-	var tradeType string
-	switch request.TradeType {
-	case APPPAYPARAMS:
-		tradeType = "APP"
-	}
-	if request.r.time == 0 {
-		request.r.time = getNowSec()
-	}
-	auth := W.token(request.UserId, "")
-	if auth.Status != AuthStatusSucc {
-		resp.Code = AuthErrNotSigned
-		return nil
-	}
-	params := wxWapPayRequest{
-		AppId:      wxPayAppId,
-		MchId:      wxPayMchId,
-		SubMchId:   auth.MchId,
-		SubAppId:   auth.AppId,
-		NonceStr:   randomString(32),
-		Body:       request.ItemDes,
-		OutTradeId: request.OutTradeId,
-		Amount:     fmt.Sprintf("%d", request.Amount),
-		IPAddr:     request.IPAddr,
-		NotifyUrl:  wxPayNotifyUrl,
-		TradeType:  tradeType,
-		OpenId:     request.OpenId,
-		SubOpenId:  request.SubOpenId,
-		SceneInfo: string(jsonEncode(map[string]interface{}{
-			"h5_info": map[string]interface{}{"type": "Wap", "wap_url": request.Scene.Url, "wap_name": request.Scene.Name},
-		})),
-	}
-	if params.TradeType == JSPAYPARAMS {
-		if params.OpenId == "" && params.SubOpenId == "" {
-			resp.Code = SysErrParams
-			resp.SourceData = fmt.Sprintf("trade type:%s,openid or sub_openid must have one", params.TradeType)
-
-		}
-	}
-	params.Sign = WXPaySigner(structToMap(params, "xml"))
-	Log.ERROR.Printf("wxpay params:%+v", params)
-	postBody, err := xml.Marshal(params)
-	if err != nil {
-		resp.Code = SysErrParams
-		resp.SourceData = err.Error()
-		return nil
-	}
-	var result interface{}
-	var next int
-	for getNowSec()-request.r.time < 30 {
-		result, next, err = W.request(wxPayUrl+"/pay/unifiedorder", postBody)
-		resp.SourceData = string(jsonEncode(result))
-		if err != nil {
-			if v, ok := wxErrMap[err.Error()]; ok {
-				resp.Code = v
-			} else {
-				resp.Code = TradeErr
-			}
-			switch next {
-			case 2, -1:
-				//网络异常 1s后重试
-				time.Sleep(1 * time.Second)
-			default:
-				//其他错误，直接返回
-				return nil
-			}
-		} else {
-			//成功返回
-			tmpresult := wxWapPayResult{}
-			xml.Unmarshal(result.([]byte), &tmpresult)
-			if params.TradeType == JSPAYPARAMS {
-				jsParams := map[string]string{
-					"appId":     wxPayAppId,
-					"timeStamp": fmt.Sprintf("%d", getNowSec()),
-					"nonceStr":  randomString(32),
-					"package":   "prepay_id=" + tmpresult.PrePayId,
-					"signType":  "MD5",
-				}
-				jsParams["paySign"] = WXPaySigner(jsParams)
-				resp.SourceData = string(jsonEncode(jsParams))
-			} else {
-				resp.SourceData = string(jsonEncode(map[string]string{
-					"perpay_id": tmpresult.PrePayId,
-					"mweb_url":  tmpresult.MWEBURL,
-				}))
-			}
-
-			//save tradeinfo
-			saveTrade(Trade{
-				OutTradeId: request.OutTradeId,
-				Status:     0,
-				Type:       1,
-				Amount:     request.Amount,
-				Source:     PAYTYPE_WXPAY,
-				UpTime:     getNowSec(),
-				Ex:         request.Ex,
-				Id:         randomTimeString(), // PPPID
-			})
-			return nil
-		}
-	}
-	return nil
-}
-
-// 增加授权
+// AuthSigned 增加授权
 // 刷新/获取授权
 // 传入参数为Token格式,微信传入MchId：子商户ID
-// 返回为 AuthResult
-func (W *WXPay) AuthSigned(request *AuthRequest, resp *AuthResult) error {
-	Log.DEBUG.Printf("WXPay api:AuthSigned,request:%+v", request)
-	defer Log.DEBUG.Printf("WXPay api:AuthSigned,response:%+v", resp)
-	if request.MchId == "" {
-		resp.Code = SysErrParams
-		return nil
+// req mchid account appid
+func (W *WXPay) AuthSigned(req *Auth) (auth *Auth, e Error) {
+	auth = W.token("", req.MchID)
+	if auth.ID != "" {
+		//授权已存在直接返回
+		return
 	}
-	auth := getToken(request.MchId, PAYTYPE_WXPAY)
-	auth.Account = request.Account
-	if auth.MchId != "" {
-		//已存在授权直接返回
-		return nil
-	} else {
-		auth.Id = randomString(15)
-		auth.MchId = request.MchId
-		auth.Type = PAYTYPE_WXPAY
-		auth.Status = AuthStatusSucc
-		auth.AppId = request.AppId
-		saveToken(auth)
+	auth = &Auth{
+		ID:      randomTimeString(),
+		Status:  AuthStatusSucc,
+		MchID:   req.MchID,
+		From:    WXPAY,
+		Account: req.Account,
+		AppID:   req.AppID,
 	}
-	resp.Data = Auth{
-		MchId:  auth.MchId,
-		Id:     auth.Id,
-		Type:   auth.Type,
-		Status: auth.Status,
+	//检测权限是否真实开通
+	//临时指定auth状态为AuthStatusSucc 为了后面通过权限验证
+	W.rs.auth = auth
+	if _, err := W.TradeInfo(&Trade{MchID: auth.MchID, TradeID: "tradeforAuthSignedCheck"}, true); err.Code == AuthErr {
+		//查询订单返回权限错误，说明授权存在问题
+		e.Code = AuthErr
+		e.Msg = err.Msg
+		return
 	}
-	//校验mchid是否为服务商子商户
-	trade := TradeResult{}
-	W.TradeInfo(&TradeRequest{r: rsys{mchid: auth.MchId}, TradeId: "test123"}, &trade)
-	if trade.Code == AuthErr {
-		//授权错误，删除授权
-		resp.Code = AuthErr
-		deleteToken(auth.MchId, auth.Type)
-	}
-	return nil
+
+	//保存authinfo
+	saveToken(auth)
+
+	// TODO :更新所有绑定过此auth的用户数据
+	// updateUserMulti(bson.M{"mchid": auth.MchId, "type": PAYTYPE_ALIPAY, "status": bson.M{"$ne": UserFreeze}}, bson.M{"$set": bson.M{"status": UserSucc}})
+	return
 }
 
-type wxResult struct {
-	XMLName xml.Name `xml:"xml"`
-
-	ReturnCode string `xml:"return_code"` // 返回状态码
-	ReturnMsg  string `xml:"return_msg"`  // 返回信息
-
-	// when return_code == SUCCESS
-	AppId      string `xml:"appid"`        // 公众账号ID
-	MchId      string `xml:"mch_id"`       // 商户号
-	DeviceInfo string `xml:"device_info"`  // 设备号
-	NonceStr   string `xml:"nonce_str"`    // 随机字符串
-	Sign       string `xml:"sign"`         // 签名
-	ResultCode string `xml:"result_code"`  // 业务结果
-	ErrCode    string `xml:"err_code"`     // 错误代码
-	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
-}
-
-func (w *WXPay) requestTls(url string, data []byte) (interface{}, int, error) {
-	body, err := postRequestTls(url, "text/xml", bytes.NewBuffer(data), wxPayCertTlsConfig)
-	if err != nil {
-		//网络发起请求失败
-		//需重试
-		return nil, -1, err
+func (W *WXPay) token(userid, mchid string) *Auth {
+	if W.rs.auth != nil {
+		return W.rs.auth
 	}
-	result := wxResult{}
-	Log.DEBUG.Printf("wxpay request url:%s,body:%s", url, string(body))
-
-	if err := xml.Unmarshal(body, &result); err != nil {
-		return nil, 0, err
-	}
-	if result.ReturnCode != "SUCCESS" {
-		return nil, -1, newError(result.ReturnCode + result.ReturnMsg)
-	}
-	next, err := w.errorCheck(result)
-	return body, next, err
-}
-func (w *WXPay) request(url string, data []byte) (interface{}, int, error) {
-	body, err := postRequest(url, "text/xml", bytes.NewBuffer(data))
-	if err != nil {
-		//网络发起请求失败
-		//需重试
-		return nil, -1, err
-	}
-	result := wxResult{}
-	Log.DEBUG.Printf("wxpay request url:%s,body:%s", url, string(body))
-	if err := xml.Unmarshal(body, &result); err != nil {
-		return nil, 0, err
-	}
-	if result.ReturnCode != "SUCCESS" {
-		return nil, 0, newError("NOAUTH")
-	}
-	next, err := w.errorCheck(result)
-	return body, next, err
-}
-
-func (w *WXPay) errorCheck(result wxResult) (int, error) {
-	if result.ResultCode == "SUCCESS" {
-		//成功
-		return 0, nil
-	}
-	var code int
-	switch result.ErrCode {
-	case "SYSTEMERROR", "BANKERROR":
-		//需确认
-		code = 2
-	case "USERPAYING":
-		//需循环确认
-		code = 3
-	default:
-	}
-	return code, newError(result.ErrCode)
-}
-func (w *WXPay) token(userid, mchid string) authBase {
-	auth := authBase{}
-	if mchid == "" {
-		user := getUser(userid, PAYTYPE_WXPAY)
-		if user.Status != UserSucc {
-			return auth
-		}
-		mchid = user.MchId
-	}
-	return getToken(mchid, PAYTYPE_WXPAY)
-}
-
-var wxErrMap = map[string]int{
-	"ORDERPAID":         PayErrPayed,
-	"NOAUTH":            AuthErr,
-	"AUTHCODEEXPIRE":    PayErrCode,
-	"NOTENOUGH":         UserErrBalance,
-	"ORDERCLODES":       TradeErrStatus,
-	"ORDERREVERSED":     TradeErrStatus,
-	"OUT_TRADE_NO_USED": TradeErrStatus,
-	"AUTH_CODE_ERROR":   PayErrCode,
-	"AUTH_CODE_INVALID": PayErrCode,
-	"ORDERNOTEXIST":     TradeErrNotFound,
-	"REVERSE_EXPIRE":    RefundErrExpire,
-}
-var wxTradeStatusMap = map[string]Status{
-	"SUCCESS":    TradeStatusSucc,
-	"REFUND":     TradeStatusRefund,
-	"NOTPAY":     TradeStatusWaitPay,
-	"CLOSED":     TradeStatusClose,
-	"REVOKED":    TradeStatusClose,
-	"USERPAYING": TradeStatusWaitPay,
+	W.rs.auth = token(userid, mchid, WXPAY)
+	return W.rs.auth
 }
