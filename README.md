@@ -2,6 +2,17 @@
 微信支付，支付宝支付服务商后端golang版本
 
 ## 启动
+
+证书配置
+```
+cert
+    alipay
+        private.key  // 应用私钥
+        public.key   // 支付宝公钥
+    wxpay
+        cert.p12     //微信的p12证书
+```
+
  - cp config.tmp.yml config.yml
  - go run rpc/hprose.go --path=configfilepath
 
