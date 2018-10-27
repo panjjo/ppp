@@ -16,7 +16,8 @@ import (
 const (
 	// WXPAYSINGLE 微信支付单商户的标识
 	WXPAYSINGLE string = "wxpay_single"
-	WXPAYAPP    string = "wxpay_app"
+	// WXPAYAPP 微信支付app支付标识
+	WXPAYAPP string = "wxpay_app"
 )
 
 // WXPaySingle 微信支付单商户模式主体

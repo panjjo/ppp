@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"ppp"
+
+	"github.com/panjjo/ppp"
 )
 
 var wxpay *ppp.WXPay
 
-func main() {
+func main3() {
 
 	config := ppp.LoadConfig("/Users/panjjo/work/go/src/ppp/config.yml")
 	ppp.NewLogger(config.Sys.LogLevel)

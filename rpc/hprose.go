@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
-	"net/http"
+	"net"
 	"path/filepath"
-	"ppp"
 
 	"github.com/hprose/hprose-golang/rpc"
+	"github.com/panjjo/log4go"
+	"github.com/panjjo/ppp"
 )
 
 var alipay *ppp.AliPay
@@ -15,6 +16,7 @@ var wxpaySingle *ppp.WXPaySingle
 var wxpaySingleForAPP *ppp.WXPaySingleForAPP
 
 var configPath = flag.String("path", "", "配置文件地址")
+var scheme = flag.String("scheme", "rpc", "启动方式")
 
 func main() {
 	flag.Parse()
@@ -24,8 +26,7 @@ func main() {
 	ppp.NewLogger(config.Sys.LogLevel)
 	ppp.NewDBPool(&config.DB)
 
-	// service := rpc.NewTCPService()
-	service := rpc.NewHTTPService()
+	service := rpc.NewTCPService()
 
 	if config.AliPay.Use {
 		alipay = ppp.NewAliPay(config.AliPay)
@@ -47,11 +48,26 @@ func main() {
 		service.AddAllMethods(wxpaySingleForAPP, rpc.Options{NameSpace: ppp.WXPAYAPP})
 		ppp.Log.DEBUG.Println("wxpay_app init succ")
 	}
-	http.ListenAndServe(":1234", service)
-	// l, e := net.Listen("tcp", config.Sys.ADDR)
-	// if e != nil {
-	// 	ppp.Log.ERROR.Panicf("listen tcp %s error:%v", config.Sys.ADDR, e)
-	// }
-	// service.Serve(l)
 
+	l, e := net.Listen("tcp", config.Sys.ADDR)
+	if e != nil {
+		ppp.Log.ERROR.Panicf("listen tcp %s error:%v", config.Sys.ADDR, e)
+	}
+	ppp.Log.INFO.Println("listen tcp at", config.Sys.ADDR)
+	service.Serve(l)
+
+}
+
+type logFilter struct {
+	log *log4go.Logger
+}
+
+func (lf logFilter) handler(
+	request []byte,
+	context rpc.Context,
+	next rpc.NextFilterHandler) (response []byte, err error) {
+	lf.log.INFO.Printf("request:%s", request)
+	response, err = next(request, context)
+	lf.log.INFO.Printf("response:%s", response)
+	return
 }

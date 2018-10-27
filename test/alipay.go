@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"ppp"
+
+	"github.com/panjjo/ppp"
 )
 
 var alipay *ppp.AliPay

@@ -578,7 +578,7 @@ func (A *AliPay) request(url string, relKey string) (interface{}, Status, error)
 		return nil, netConnErr, err
 	}
 	result := map[string]interface{}{}
-	Log.ERROR.Printf("alipayresult:%+v", string(body))
+	Log.DEBUG.Printf("alipayresult:%+v", string(body))
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, nextStop, err
 	}

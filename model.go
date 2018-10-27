@@ -2,7 +2,8 @@ package ppp
 
 import (
 	"io/ioutil"
-	"ppp/db"
+
+	"github.com/panjjo/ppp/db"
 
 	yaml "gopkg.in/yaml.v1"
 )

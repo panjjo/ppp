@@ -7,7 +7,7 @@ const (
 // Auth 授权使用
 type Auth struct {
 	ID      string
-	Token   string `json:"-"`
+	Token   string
 	Status  Status
 	MchID   string
 	From    string
