@@ -165,7 +165,9 @@ func (A *AliPay) BarPay(req *BarPay) (trade *Trade, e Error) {
 	sysParams["method"] = "alipay.trade.pay"
 	sysParams["biz_content"] = string(jsonEncode(params))
 	//设置子商户数据
-	sysParams["app_auth_token"] = auth.Token
+	if auth.MchID != A.serviceid {
+		sysParams["app_auth_token"] = auth.Token
+	}
 	sysParams["sign"] = base64Encode(A.Signer(sysParams))
 	// 订单是否需要撤销，支付是否成功
 	var needCancel, paySucc bool
@@ -289,7 +291,10 @@ func (A *AliPay) Refund(req *Refund) (refund *Refund, e Error) {
 	}
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.trade.refund"
-	sysParams["app_auth_token"] = auth.Token
+	//设置子商户数据
+	if auth.MchID != A.serviceid {
+		sysParams["app_auth_token"] = auth.Token
+	}
 	sysParams["biz_content"] = string(jsonEncode(params))
 	sysParams["sign"] = base64Encode(A.Signer(sysParams))
 	rq := requestSimple{url: A.url, get: httpBuildQuery(sysParams), relKey: "alipay_trade_refund_response"}
@@ -352,7 +357,10 @@ func (A *AliPay) Cancel(req *Trade) (e Error) {
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.trade.cancel"
 	sysParams["biz_content"] = string(jsonEncode(params))
-	sysParams["app_auth_token"] = auth.Token
+	//设置子商户数据
+	if auth.MchID != A.serviceid {
+		sysParams["app_auth_token"] = auth.Token
+	}
 	sysParams["sign"] = base64Encode(A.Signer(sysParams))
 	rq := requestSimple{url: A.url, get: httpBuildQuery(sysParams), relKey: "alipay_trade_cancel_response"}
 	rq.fs = func(result interface{}, next Status, err error) (interface{}, error) {
@@ -414,7 +422,10 @@ func (A *AliPay) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) {
 	sysParams := A.sysParams()
 	sysParams["method"] = "alipay.trade.query"
 	sysParams["biz_content"] = string(jsonEncode(params))
-	sysParams["app_auth_token"] = auth.Token
+	//设置子商户数据
+	if auth.MchID != A.serviceid {
+		sysParams["app_auth_token"] = auth.Token
+	}
 	sysParams["sign"] = base64Encode(A.Signer(sysParams))
 	rq := requestSimple{url: A.url, get: httpBuildQuery(sysParams), relKey: "alipay_trade_query_response"}
 	rq.fs = func(result interface{}, next Status, err error) (interface{}, error) {
@@ -645,7 +656,15 @@ func (A *AliPay) token(userid, mchid string) *Auth {
 	if A.rs.auth != nil {
 		return A.rs.auth
 	}
-	A.rs.auth = token(userid, mchid, ALIPAY)
+	// req.MchID == A.serviceid 标识支付宝单商户模式
+	if mchid == A.serviceid {
+		A.rs.auth = &Auth{
+			MchID:  mchid,
+			Status: AuthStatusSucc,
+		}
+	} else {
+		A.rs.auth = token(userid, mchid, ALIPAY)
+	}
 	return A.rs.auth
 }
 
