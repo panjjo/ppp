@@ -11,6 +11,7 @@ type Services struct {
 	AliPayAuthSigned func(req *Auth) (auth *Auth, e Error)               `name:"alipay_AuthSigned"`
 	AliPayAuth       func(code string) (auth *Auth, e Error)             `name:"alipay_auth"`
 	AliPayBindUser   func(req *User) (user *User, e Error)               `name:"alipay_BindUser"`
+	AliPayUnBindUser func(req *User) (user *User, e Error)               `name:"alipay_UnBindUser"`
 
 	// wxpay 微信服务商模式
 	WXPayBarPay     func(req *BarPay) (trade *Trade, e Error)           `name:"wxpay_BarPay"`
@@ -20,6 +21,7 @@ type Services struct {
 	WXPayPayParams  func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_PayParams"`
 	WXPayBindUser   func(req *User) (user *User, e Error)               `name:"wxpay_BindUser"`
 	WXPayAuthSigned func(req *Auth) (auth *Auth, e Error)               `name:"wxpay_AuthSigned"`
+	WXPayUnBindUser func(req *User) (user *User, e Error)               `name:"wxpay_UnBindUser"`
 
 	// wxpay_single 微信单商户模式
 	WXPaySingleBarPay    func(req *BarPay) (trade *Trade, e Error)           `name:"wxpay_single_BarPay"`

@@ -64,18 +64,6 @@ const (
 	UserErrRegisted = 6002
 	//UserErrNotFount 账户不存在
 	UserErrNotFount = 6003
-
-	//UserWaitVerify 用户等待审核或等待授权签约
-	UserWaitVerify Status = 0
-	//UserFreeze 用户冻结
-	UserFreeze Status = -1
-	//UserSucc 用户正常
-	UserSucc Status = 1
-
-	//AuthStatusSucc 权限授权成功
-	AuthStatusSucc Status = 1
-	//AuthStatusWaitSigned 等待签约
-	AuthStatusWaitSigned Status = 0
 )
 
 //Error 错误类型
@@ -165,8 +153,8 @@ type rs struct {
 
 // PayParams 获取支付参数
 type PayParams struct {
-	// SourceData 支付参数的map数据
-	SourceData interface{}
+	// SourceData 支付参数的map数据jsonencode
+	SourceData string
 	// Params urlencode的数据
 	Params string
 }

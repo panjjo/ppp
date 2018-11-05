@@ -136,8 +136,10 @@ func (WS *WXPaySingle) BarPay(req *BarPay) (trade *Trade, e Error) {
 		AuthCode:       req.AuthCode,
 		SpbillCreateIP: req.IPAddr,
 	}
-	params.SubMchID = WS.rs.auth.MchID
-	params.SubAppID = WS.rs.auth.AppID
+	if WS.rs.auth != nil {
+		params.SubMchID = WS.rs.auth.MchID
+		params.SubAppID = WS.rs.auth.AppID
+	}
 	params.Sign = WS.Signer(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	// 订单是否需要撤销，支付是否成功
@@ -176,6 +178,7 @@ func (WS *WXPaySingle) BarPay(req *BarPay) (trade *Trade, e Error) {
 					//支付成功
 					paySucc = true
 					needCancel = false
+					return trade, nil
 				}
 				time.Sleep(3 * time.Second)
 			}
@@ -199,35 +202,33 @@ func (WS *WXPaySingle) BarPay(req *BarPay) (trade *Trade, e Error) {
 		needCancel = false
 	}
 	if paySucc {
-		tmpresult := wxTradeResult{}
-		xml.Unmarshal(info.([]byte), &tmpresult)
-		if trade.ID != "" {
-			trade.TradeID = tmpresult.TradeID
-			trade.Amount = req.Amount
-			trade.From = ALIPAY
-			trade.UserID = req.UserID
-			trade.MchID = WS.rs.auth.MchID
-			trade.UpTime = WS.rs.t
-			trade.PayTime = WS.rs.t
-			//更新订单
-			updateTrade(map[string]interface{}{"id": trade.ID}, trade)
-		} else {
-			trade = &Trade{
-				OutTradeID: req.OutTradeID,
-				TradeID:    tmpresult.TradeID,
-				Amount:     req.Amount,
-				ID:         randomTimeString(),
-				Status:     TradeStatusSucc,
-				From:       ALIPAY,
-				Type:       BARPAY,
-				MchID:      WS.rs.auth.MchID,
-				UserID:     req.UserID,
-				UpTime:     WS.rs.t,
-				PayTime:    WS.rs.t,
-				Create:     WS.rs.t,
-			}
+		result := trade
+		switch info.(type) {
+		case *Trade:
+			tmpresult := info.(*Trade)
+			result.TradeID = tmpresult.TradeID
+			result.Amount = req.Amount
+		case []uint8:
+			tmpresult := wxTradeResult{}
+			xml.Unmarshal(info.([]byte), &tmpresult)
+			result.TradeID = tmpresult.TradeID
+			result.Amount = req.Amount
+		}
+		result.From = WS.t
+		result.UserID = req.UserID
+		result.MchID = WS.rs.auth.MchID
+		result.UpTime = WS.rs.t
+		result.PayTime = WS.rs.t
+		result.Status = TradeStatusSucc
+		if result.ID == "" {
+			result.OutTradeID = req.OutTradeID
+			result.ID = randomTimeString()
+			result.Create = WS.rs.t
 			//保存订单
 			saveTrade(trade)
+		} else {
+			//更新订单
+			updateTrade(map[string]interface{}{"id": trade.ID}, trade)
 		}
 
 	}
@@ -288,7 +289,7 @@ type wxRefundResult struct {
 // 服务商模式请调用 WXPay.Refund
 func (WS *WXPaySingle) Refund(req *Refund) (refund *Refund, e Error) {
 	trade, e := WS.TradeInfo(&Trade{OutTradeID: req.SourceID}, true)
-	if trade.ID == "" || e.Code == TradeErrNotFound {
+	if trade.TradeID == "" || e.Code == TradeErrNotFound {
 		e.Code = TradeErrNotFound
 		return
 	}
@@ -307,8 +308,10 @@ func (WS *WXPaySingle) Refund(req *Refund) (refund *Refund, e Error) {
 		TradeID:      trade.TradeID,
 		Amount:       trade.Amount,
 	}
-	params.SubMchID = WS.rs.auth.MchID
-	params.SubAppID = WS.rs.auth.AppID
+	if WS.rs.auth != nil {
+		params.SubMchID = WS.rs.auth.MchID
+		params.SubAppID = WS.rs.auth.AppID
+	}
 
 	params.Sign = WS.Signer(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
@@ -330,16 +333,17 @@ func (WS *WXPaySingle) Refund(req *Refund) (refund *Refund, e Error) {
 	info, err := WS.Request(rq)
 	if err != nil {
 		e.Msg = string(jsonEncode(info))
-		if v, ok := aliErrMap[err.Error()]; ok {
+		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
 			e.Code = RefundErr
 		}
 	} else {
 		//退款成功
-		result := info.(map[string]interface{})
+		tmpresult := wxRefundResult{}
+		xml.Unmarshal(info.([]byte), &tmpresult)
 		refund = &Refund{
-			RefundID:    result["trade_no"].(string),
+			RefundID:    tmpresult.RefundID,
 			ID:          randomTimeString(),
 			OutRefundID: req.OutRefundID,
 			MchID:       WS.rs.auth.MchID,
@@ -385,8 +389,10 @@ func (WS *WXPaySingle) Cancel(req *Trade) (e Error) {
 		TradeID:    req.TradeID,
 	}
 
-	params.SubMchID = WS.rs.auth.MchID
-	params.SubAppID = WS.rs.auth.AppID
+	if WS.rs.auth != nil {
+		params.SubMchID = WS.rs.auth.MchID
+		params.SubAppID = WS.rs.auth.AppID
+	}
 	params.Sign = WS.Signer(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	rq := requestSimple{
@@ -406,7 +412,7 @@ func (WS *WXPaySingle) Cancel(req *Trade) (e Error) {
 	info, err := WS.Request(rq)
 	if err != nil {
 		e.Msg = string(jsonEncode(info))
-		if v, ok := aliErrMap[err.Error()]; ok {
+		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
 			e.Code = TradeErr
@@ -493,8 +499,10 @@ func (WS *WXPaySingle) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) 
 		OutTradeID: req.OutTradeID,
 		TradeID:    req.TradeID,
 	}
-	params.SubMchID = WS.rs.auth.MchID
-	params.SubAppID = WS.rs.auth.AppID
+	if WS.rs.auth != nil {
+		params.SubMchID = WS.rs.auth.MchID
+		params.SubAppID = WS.rs.auth.AppID
+	}
 	params.Sign = WS.Signer(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	rq := requestSimple{
@@ -631,7 +639,6 @@ func (WS *WXPaySingle) PayParams(req *TradeParams) (data *PayParams, e Error) {
 	default:
 		tradeType = "NATIVE"
 	}
-
 	params := wxPayParamsRequest{
 		AppID:      WS.appid,
 		MchID:      WS.serviceid,
@@ -648,8 +655,10 @@ func (WS *WXPaySingle) PayParams(req *TradeParams) (data *PayParams, e Error) {
 			"h5_info": map[string]interface{}{"type": "Wap", "wap_url": req.Scene.URL, "wap_name": req.Scene.Name},
 		})),
 	}
-	params.SubMchID = WS.rs.auth.MchID
-	params.SubAppID = WS.rs.auth.AppID
+	if WS.rs.auth != nil {
+		params.SubMchID = WS.rs.auth.MchID
+		params.SubAppID = WS.rs.auth.AppID
+	}
 	params.Sign = WS.Signer(structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	rq := requestSimple{
@@ -678,6 +687,7 @@ func (WS *WXPaySingle) PayParams(req *TradeParams) (data *PayParams, e Error) {
 		//请求成功
 		tmpresult := wxPayParamsResult{}
 		xml.Unmarshal(info.([]byte), &tmpresult)
+		data = &PayParams{}
 		switch req.Type {
 		case APPPAY:
 			//app支付返回的是请求参数
@@ -689,23 +699,41 @@ func (WS *WXPaySingle) PayParams(req *TradeParams) (data *PayParams, e Error) {
 				"noncestr":  randomString(32),
 				"timestamp": fmt.Sprintf("%d", getNowSec()),
 			}
-			data.SourceData = appparams
+			data.SourceData = string(jsonEncode(appparams))
 			data.Params = httpBuildQuery(appparams)
 		case JSPAY:
 			// 公众号支付 返回预支付id
-			data.SourceData = map[string]string{
+			data.SourceData = string(jsonEncode(map[string]string{
 				"perpay_id": tmpresult.PrePayID,
-			}
-		case CBARPAY:
+			}))
+		case CBARPAY, WEBPAY:
 			//顾客扫码支付 返回的是二维码地址
-			data.SourceData = map[string]string{
+			data.SourceData = string(jsonEncode(map[string]string{
 				"code_url": tmpresult.CodeURL,
-			}
+			}))
 		default:
 			//
-			data.SourceData = map[string]string{
+			data.SourceData = string(jsonEncode(map[string]string{
 				"code_url": tmpresult.CodeURL,
-			}
+			}))
+		}
+		newTrade := &Trade{
+			OutTradeID: req.OutTradeID,
+			Amount:     req.Amount,
+			ID:         randomTimeString(),
+			Type:       req.Type,
+			MchID:      WS.serviceid,
+			UpTime:     getNowSec(),
+			Create:     getNowSec(),
+			From:       WS.t,
+		}
+		//save tradeinfo
+		if trade.ID != "" {
+			//更新
+			updateTrade(map[string]interface{}{"outtradeid": trade.OutTradeID}, newTrade)
+		} else {
+			//新增
+			saveTrade(newTrade)
 		}
 	}
 	return

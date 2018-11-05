@@ -2,6 +2,11 @@ package ppp
 
 const (
 	authTable = "auths"
+
+	//AuthStatusSucc 权限授权成功
+	AuthStatusSucc Status = 1
+	//AuthStatusWaitSigned 等待签约
+	AuthStatusWaitSigned Status = 0
 )
 
 // Auth 授权使用
@@ -51,5 +56,6 @@ func token(userid, mchid, t string) *Auth {
 		}
 		mchid = user.MchID
 	}
+	Log.DEBUG.Printf("%s,%s", mchid, t)
 	return getToken(mchid, t)
 }

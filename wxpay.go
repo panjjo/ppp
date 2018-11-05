@@ -9,14 +9,15 @@ const (
 // 微信支付服务商模式
 // 服务商模式与单商户模式区别只是多了一个 子商户权限，其余接口结构返回完全一致
 type WXPay struct {
-	*WXPaySingle
-	ws *WXPaySingle
+	ws WXPaySingle
+	t  string
+	rs rs
 }
 
 // NewWXPay 获取微信实例
 func NewWXPay(config Config) *WXPay {
 	ws := NewWXPaySingle(config)
-	wx := &WXPay{ws, ws}
+	wx := &WXPay{ws: *ws}
 	wx.t = WXPAY
 	return wx
 }
@@ -124,6 +125,29 @@ func (W *WXPay) BindUser(req *User) (user *User, e Error) {
 	return
 }
 
+// UnBindUser 用户解除绑定
+// 将Auth授权和User进行解绑
+// 多个用户可使用同一个Auth，可有效防止重复授权导致多个Auth争取token问题
+// 解绑之后auth授权依然有效
+func (W *WXPay) UnBindUser(req *User) (user *User, e Error) {
+	if req.UserID == "" {
+		e.Code = SysErrParams
+		e.Msg = "userid  必传"
+		return
+	}
+	user = getUser(req.UserID, ALIPAY)
+	if user.ID != "" {
+		//存在更新授权
+		user.MchID = ""
+		user.Status = UserWaitVerify
+		updateUser(map[string]interface{}{"userid": user.UserID}, user)
+	} else {
+		//用户不存在
+		e.Code = UserErrNotFount
+	}
+	return
+}
+
 // AuthSigned 增加授权
 // 刷新/获取授权
 // 传入参数为Token格式,微信传入MchId：子商户ID
@@ -154,9 +178,8 @@ func (W *WXPay) AuthSigned(req *Auth) (auth *Auth, e Error) {
 
 	//保存authinfo
 	saveToken(auth)
-
-	// TODO :更新所有绑定过此auth的用户数据
-	// updateUserMulti(bson.M{"mchid": auth.MchId, "type": PAYTYPE_ALIPAY, "status": bson.M{"$ne": UserFreeze}}, bson.M{"$set": bson.M{"status": UserSucc}})
+	//更新所有绑定过此auth的用户数据
+	updateUserMulti(map[string]interface{}{"mchid": auth.MchID, "type": W.t}, map[string]interface{}{"status": UserSucc})
 	return
 }
 
@@ -165,5 +188,6 @@ func (W *WXPay) token(userid, mchid string) *Auth {
 		return W.rs.auth
 	}
 	W.rs.auth = token(userid, mchid, WXPAY)
+	W.ws.rs.auth = W.rs.auth
 	return W.rs.auth
 }

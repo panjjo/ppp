@@ -35,6 +35,8 @@ type Conn interface {
 	Save(tb string, data interface{}) error
 	// UpSert 存在更新，不存在新增
 	UpSert(tb string, query, update interface{}) (interface{}, error)
+	// updateAll 批量更新
+	UpAll(tb string, query, update interface{}) (interface{}, error)
 }
 
 // Pool maintains a pool of connections. The application calls the Get method

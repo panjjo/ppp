@@ -1,9 +1,10 @@
 *.key
 cert_prod/*
 cert_dev/*
-config.prod.yml
+cert_test/*
+cert_pre/*
+config.*.yml
 config.yml
-config.dev.yml
 main
 .vscode/*
 *.DS_Store

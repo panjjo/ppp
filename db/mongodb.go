@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // MgoConn mongodb的连接实例
@@ -55,6 +56,11 @@ func (c MgoConn) Update(tb string, query, update interface{}) (err error) {
 // UpSert 实现有就更新，没有新增
 func (c MgoConn) UpSert(tb string, query, update interface{}) (change interface{}, err error) {
 	return c._db.C(tb).Upsert(query, update)
+}
+
+// UpAll 实现有就更新，没有新增
+func (c MgoConn) UpAll(tb string, query, update interface{}) (change interface{}, err error) {
+	return c._db.C(tb).UpdateAll(query, bson.M{"$set": update})
 }
 
 // Save 实现保存接口

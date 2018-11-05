@@ -2,6 +2,13 @@ package ppp
 
 const (
 	userTable = "users"
+
+	//UserWaitVerify 用户等待审核或等待授权签约
+	UserWaitVerify Status = 0
+	//UserFreeze 用户冻结
+	UserFreeze Status = -1
+	//UserSucc 用户正常
+	UserSucc Status = 1
 )
 
 // User 用户信息
@@ -31,6 +38,14 @@ func updateUser(query, update interface{}) error {
 	session := DBPool.Get()
 	defer session.Close()
 	return session.Update(userTable, query, update)
+}
+
+//
+func updateUserMulti(query, update interface{}) error {
+	session := DBPool.Get()
+	defer session.Close()
+	_, err := session.UpAll(userTable, query, update)
+	return err
 }
 
 // 保存用户

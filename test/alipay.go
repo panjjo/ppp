@@ -29,14 +29,14 @@ func main1() {
 }
 
 func payParams(t ppp.TradeType) {
-	fmt.Println(alipay.PayParams(&ppp.TradeParams{
-		OutTradeID: "123456",
-		TradeName:  "测试",
-		Amount:     7520,
-		ItemDes:    "trade for test",
-		ShopID:     "abcd",
-		Type:       t,
-	}))
+	// fmt.Println(alipay.PayParams(&ppp.TradeParams{
+	// 	OutTradeID: "123456",
+	// 	TradeName:  "测试",
+	// 	Amount:     7520,
+	// 	ItemDes:    "trade for test",
+	// 	ShopID:     "abcd",
+	// 	Type:       t,
+	// }))
 }
 
 func refund() {

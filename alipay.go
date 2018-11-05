@@ -105,7 +105,7 @@ func (A *AliPay) PayParams(req *TradeParams) (data *PayParams, e Error) {
 	sysParams["sign"] = base64Encode(A.Signer(sysParams))
 	data = &PayParams{
 		Params:     httpBuildQuery(sysParams),
-		SourceData: sysParams,
+		SourceData: string(jsonEncode(sysParams)),
 	}
 	newTrade := &Trade{
 		OutTradeID: req.OutTradeID,
@@ -488,7 +488,7 @@ func (A *AliPay) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) {
 //AuthSigned 支付宝授权签约
 // 支付宝签约完成后调用，可用参数 status account mchid
 func (A *AliPay) AuthSigned(req *Auth) (auth *Auth, e Error) {
-	auth = A.token("", req.MchID)
+	auth = A.token("authsigned", req.MchID)
 	if auth.ID == "" {
 		e.Code = AuthErr
 		return
@@ -515,8 +515,8 @@ func (A *AliPay) AuthSigned(req *Auth) (auth *Auth, e Error) {
 	//更新authinfo
 	updateToken(auth.MchID, ALIPAY, auth)
 
-	// TODO :更新所有绑定过此auth的用户数据
-	// updateUserMulti(bson.M{"mchid": auth.MchId, "type": PAYTYPE_ALIPAY, "status": bson.M{"$ne": UserFreeze}}, bson.M{"$set": bson.M{"status": UserSucc}})
+	// 更新所有绑定过此auth的用户数据
+	updateUserMulti(map[string]interface{}{"mchid": auth.MchID, "type": ALIPAY}, map[string]interface{}{"status": UserSucc})
 	return
 }
 
@@ -642,6 +642,29 @@ func (A *AliPay) BindUser(req *User) (user *User, e Error) {
 	return
 }
 
+// UnBindUser 用户解除绑定
+// 将Auth授权和User进行解绑
+// 多个用户可使用同一个Auth，可有效防止重复授权导致多个Auth争取token问题
+// 解绑之后auth授权依然有效
+func (A *AliPay) UnBindUser(req *User) (user *User, e Error) {
+	if req.UserID == "" {
+		e.Code = SysErrParams
+		e.Msg = "userid  必传"
+		return
+	}
+	user = getUser(req.UserID, ALIPAY)
+	if user.ID != "" {
+		//存在更新授权
+		user.MchID = ""
+		user.Status = UserWaitVerify
+		updateUser(map[string]interface{}{"userid": user.UserID}, user)
+	} else {
+		//用户不存在
+		e.Code = UserErrNotFount
+	}
+	return
+}
+
 //Signer 支付宝请求做验签
 //使用应用私钥
 func (A *AliPay) Signer(data map[string]string) (signer []byte) {
@@ -657,9 +680,9 @@ func (A *AliPay) token(userid, mchid string) *Auth {
 		return A.rs.auth
 	}
 	// req.MchID == A.serviceid 标识支付宝单商户模式
-	if mchid == A.serviceid {
+	if userid == "" {
 		A.rs.auth = &Auth{
-			MchID:  mchid,
+			MchID:  A.serviceid,
 			Status: AuthStatusSucc,
 		}
 	} else {
