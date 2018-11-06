@@ -7,6 +7,12 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+type restResponse struct {
+	Code int         `json:"code"`
+	Data interface{} `json:"data"`
+	TS   int64       `json:"ts"`
+}
+
 func restAPI() {
 	router := httprouter.New()
 
