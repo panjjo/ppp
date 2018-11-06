@@ -5,6 +5,8 @@ const (
 
 	//TradeStatusWaitPay 订单未支付
 	TradeStatusWaitPay Status = 0
+	// TradeStatusPaying 等待用户输入密码
+	TradeStatusPaying Status = 2
 	//TradeStatusClose 订单取消/退款
 	TradeStatusClose Status = -1
 	//TradeStatusRefund 订单取消/退款

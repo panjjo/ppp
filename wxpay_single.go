@@ -179,6 +179,11 @@ func (WS *WXPaySingle) BarPay(req *BarPay) (trade *Trade, e Error) {
 					paySucc = true
 					needCancel = false
 					return trade, nil
+				} else if trade.Status == TradeStatusWaitPay {
+					// 订单取消支付
+					paySucc = false
+					needCancel = true
+					return trade, newError("用户取消支付")
 				}
 				time.Sleep(3 * time.Second)
 			}
@@ -398,7 +403,9 @@ func (WS *WXPaySingle) Cancel(req *Trade) (e Error) {
 	rq := requestSimple{
 		url:  WS.url + "/secapi/pay/reverse",
 		body: postBody,
+		tls:  true,
 	}
+
 	rq.fs = func(result interface{}, next Status, err error) (interface{}, error) {
 		switch next {
 		case netConnErr, nextRetry:
@@ -475,7 +482,6 @@ type wxTradeResult struct {
 // 单商户模式调用
 // 服务商模式请调用 WXPay.TradeInfo
 func (WS *WXPaySingle) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) {
-
 	q := bson.M{"from": WS.t}
 	if req.TradeID != "" {
 		q["tradeid"] = req.TradeID
@@ -773,6 +779,7 @@ func (WS *WXPaySingle) request(url string, data []byte, tls bool) (interface{}, 
 	} else {
 		body, err = postRequest(url, "text/xml", bytes.NewBuffer(data))
 	}
+	Log.DEBUG.Printf("url:%s,data:%s,tls:%v,err:%v", url, string(data), tls, err)
 	if err != nil {
 		//网络发起请求失败
 		//需重试
@@ -827,5 +834,5 @@ var wxTradeStatusMap = map[string]Status{
 	"NOTPAY":     TradeStatusWaitPay,
 	"CLOSED":     TradeStatusClose,
 	"REVOKED":    TradeStatusClose,
-	"USERPAYING": TradeStatusWaitPay,
+	"USERPAYING": TradeStatusPaying,
 }

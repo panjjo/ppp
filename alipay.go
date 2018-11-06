@@ -224,36 +224,32 @@ func (A *AliPay) BarPay(req *BarPay) (trade *Trade, e Error) {
 		needCancel = false
 	}
 	if paySucc {
-		tradeTmp := info.(map[string]interface{})
-		if trade.ID != "" {
-			trade.TradeID = tradeTmp["trade_no"].(string)
-			trade.Amount = req.Amount
-			trade.From = ALIPAY
-			trade.UserID = req.UserID
-			trade.MchID = A.rs.auth.MchID
-			trade.UpTime = A.rs.t
-			trade.PayTime = A.rs.t
-			//更新订单
-			updateTrade(map[string]interface{}{"id": trade.ID}, trade)
-		} else {
-			trade = &Trade{
-				OutTradeID: req.OutTradeID,
-				TradeID:    tradeTmp["trade_no"].(string),
-				Amount:     req.Amount,
-				ID:         randomTimeString(),
-				Status:     TradeStatusSucc,
-				From:       ALIPAY,
-				Type:       BARPAY,
-				MchID:      A.rs.auth.MchID,
-				UserID:     req.UserID,
-				UpTime:     A.rs.t,
-				PayTime:    A.rs.t,
-				Create:     A.rs.t,
-			}
+		result := trade
+		switch info.(type) {
+		case *Trade:
+			tmpresult := info.(*Trade)
+			result.TradeID = tmpresult.TradeID
+		case map[string]interface{}:
+			tmpresult := info.(map[string]interface{})
+			result.TradeID = tmpresult["trade_no"].(string)
+		}
+		result.Amount = req.Amount
+		result.From = ALIPAY
+		result.UserID = req.UserID
+		result.MchID = A.rs.auth.MchID
+		result.UpTime = A.rs.t
+		result.PayTime = A.rs.t
+		result.Status = TradeStatusSucc
+		if result.ID == "" {
+			result.OutTradeID = req.OutTradeID
+			result.ID = randomTimeString()
+			result.Create = A.rs.t
 			//保存订单
 			saveTrade(trade)
+		} else {
+			//更新订单
+			updateTrade(map[string]interface{}{"id": trade.ID}, trade)
 		}
-
 	}
 	if needCancel {
 		//取消订单

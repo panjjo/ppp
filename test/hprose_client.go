@@ -8,12 +8,18 @@ import (
 )
 
 func main() {
-	client := rpc.NewTCPClient("tcp://127.0.0.1:1234")
+	client := rpc.NewTCPClient("tcp://127.0.0.1:1233")
 	service := &ppp.Services{}
 	client.UseService(&service)
 	// fmt.Println(service.AliPayAuth("d70f66b37f5e40259b56277b29edbX49"))
-	fmt.Println(service.WXPayPayParams(&ppp.TradeParams{
-		MchID: "1490825832",
+	fmt.Println(service.WXPaySingleBarPay(&ppp.BarPay{
+		MchID:      "1490825832",
+		Amount:     1,
+		AuthCode:   "",
+		OutTradeID: "64174267ew23a82",
+		TradeName:  "testa",
+		ItemDes:    "124354",
+		ShopID:     "1234",
 	}))
 }
 
