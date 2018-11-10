@@ -729,6 +729,7 @@ var aliErrMap = map[string]int{
 	"40004ACQ.TRADE_STATUS_ERROR":         TradeErrStatus,
 	"40004ACQ.SELLER_BALANCE_NOT_ENOUGH":  UserErrBalance,
 	"40004ACQ.REFUND_AMT_NOT_EQUAL_TOTAL": RefundErrAmount,
+	"40004ACQ.ACCESS_FORBIDDEN":           AuthErr,
 }
 var aliTradeStatusMap = map[string]Status{
 	"WAIT_BUYER_PAY": TradeStatusWaitPay,
