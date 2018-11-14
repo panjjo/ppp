@@ -457,6 +457,8 @@ func (A *AliPay) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) {
 			Type:       trade.Type,
 			From:       ALIPAY,
 		}
+		trade.MchID = A.rs.auth.MchID
+		trade.UserID = req.UserID
 		if paytime, ok := tmpresult["send_pay_date"]; ok {
 			trade.PayTime = str2Sec("2006-01-02 15:04:05", paytime.(string))
 		}

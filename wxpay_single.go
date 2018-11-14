@@ -550,6 +550,8 @@ func (WS *WXPaySingle) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) 
 			From:       WS.t,
 			PayTime:    str2Sec("20060102150405", tmpresult.TimeEnd),
 		}
+		trade.UserID = req.UserID
+		trade.MchID = WS.rs.auth.MchID
 		if trade.ID == "" {
 			//本地不存在
 			// trade.ID = randomTimeString()
