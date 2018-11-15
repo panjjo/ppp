@@ -147,8 +147,9 @@ type BarPay struct {
 
 //rs 请求过程中的一些信息
 type rs struct {
-	t    int64 //请求开始时间
-	auth *Auth //权限信息
+	t      int64 //请求开始时间
+	auth   *Auth //权限信息
+	userid string
 }
 
 // PayParams 获取支付参数

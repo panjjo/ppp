@@ -220,7 +220,8 @@ func (WS *WXPaySingle) BarPay(req *BarPay) (trade *Trade, e Error) {
 			result.Amount = req.Amount
 		}
 		result.From = WS.t
-		result.UserID = req.UserID
+		result.Type = BARPAY
+		result.UserID = WS.rs.userid
 		result.MchID = WS.rs.auth.MchID
 		result.UpTime = WS.rs.t
 		result.PayTime = WS.rs.t
@@ -352,7 +353,7 @@ func (WS *WXPaySingle) Refund(req *Refund) (refund *Refund, e Error) {
 			ID:          randomTimeString(),
 			OutRefundID: req.OutRefundID,
 			MchID:       WS.rs.auth.MchID,
-			UserID:      req.UserID,
+			UserID:      WS.rs.userid,
 			Amount:      req.Amount,
 			SourceID:    req.SourceID,
 			Status:      RefundStatusSucc,
@@ -550,7 +551,7 @@ func (WS *WXPaySingle) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) 
 			From:       WS.t,
 			PayTime:    str2Sec("20060102150405", tmpresult.TimeEnd),
 		}
-		trade.UserID = req.UserID
+		trade.UserID = WS.rs.userid
 		trade.MchID = WS.rs.auth.MchID
 		if trade.ID == "" {
 			//本地不存在

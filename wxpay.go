@@ -190,5 +190,7 @@ func (W *WXPay) token(userid, mchid string) *Auth {
 	}
 	W.rs.auth = token(userid, mchid, WXPAY)
 	W.ws.rs.auth = W.rs.auth
+	W.rs.userid = userid
+	W.ws.rs.userid = userid
 	return W.rs.auth
 }

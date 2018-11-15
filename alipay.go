@@ -235,11 +235,12 @@ func (A *AliPay) BarPay(req *BarPay) (trade *Trade, e Error) {
 		}
 		result.Amount = req.Amount
 		result.From = ALIPAY
-		result.UserID = req.UserID
+		result.UserID = A.rs.userid
 		result.MchID = A.rs.auth.MchID
 		result.UpTime = A.rs.t
 		result.PayTime = A.rs.t
 		result.Status = TradeStatusSucc
+		result.Type = BARPAY
 		if result.ID == "" {
 			result.OutTradeID = req.OutTradeID
 			result.ID = randomTimeString()
@@ -320,7 +321,7 @@ func (A *AliPay) Refund(req *Refund) (refund *Refund, e Error) {
 			ID:          randomTimeString(),
 			OutRefundID: req.OutRefundID,
 			MchID:       A.rs.auth.MchID,
-			UserID:      req.UserID,
+			UserID:      A.rs.userid,
 			Amount:      req.Amount,
 			SourceID:    req.SourceID,
 			Status:      RefundStatusSucc,
@@ -458,7 +459,7 @@ func (A *AliPay) TradeInfo(req *Trade, sync bool) (trade *Trade, e Error) {
 			From:       ALIPAY,
 		}
 		trade.MchID = A.rs.auth.MchID
-		trade.UserID = req.UserID
+		trade.UserID = A.rs.userid
 		if paytime, ok := tmpresult["send_pay_date"]; ok {
 			trade.PayTime = str2Sec("2006-01-02 15:04:05", paytime.(string))
 		}
@@ -684,6 +685,7 @@ func (A *AliPay) token(userid, mchid string) *Auth {
 			Status: AuthStatusSucc,
 		}
 	} else {
+		A.rs.userid = userid
 		A.rs.auth = token(userid, mchid, ALIPAY)
 	}
 	return A.rs.auth
