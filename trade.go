@@ -24,6 +24,8 @@ const (
 	WEBPAY TradeType = "WEB"
 	// JSPAY 公众号支付
 	JSPAY TradeType = "JS"
+	// MINIP 小程序支付
+	MINIPAY TradeType = "MINIP"
 	// CBARPAY 微信扫码支付（顾客扫码）
 	CBARPAY TradeType = "CBAR"
 )
