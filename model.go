@@ -100,6 +100,8 @@ type WXSingleConfig struct {
 	APP Config `yaml:"app"`
 	// 其他:公众号，扫码，h5等
 	Other Config `yaml:"other"`
+	// 小程序支付
+	MINIP Config `yaml:"minip"`
 }
 
 //Config 单项配置文件

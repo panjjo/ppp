@@ -223,3 +223,13 @@ func (A *WXPayAPPHproseRPC) Cancel(req *ppp.Trade) (e ppp.Error) {
 	tmp := *wxpaySingleForAPP
 	return tmp.Cancel(req)
 }
+
+// WXPayMINIPHproseRPC ...
+type WXPayMINIPHproseRPC struct {
+}
+
+// PayParams ...
+func (A *WXPayMINIPHproseRPC) PayParams(req *ppp.TradeParams) (data *ppp.PayParams, e ppp.Error) {
+	tmp := *wxpaySingleForMINIP
+	return tmp.PayParams(req)
+}

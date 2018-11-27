@@ -36,4 +36,7 @@ type Services struct {
 	WXPayAPPTradeInfo func(req *Trade, sync bool) (trade *Trade, e Error) `name:"wxpay_app_TradeInfo"`
 	WXPayAPPCancel    func(req *Trade) (e Error)                          `name:"wxpay_app_Cancel"`
 	WXPayAPPPayParams func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_app_PayParams"`
+
+	// wxpay_minip 微信单商户小程序支付
+	WXPayAPPPayMINIPParams func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_minip_PayParams"`
 }

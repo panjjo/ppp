@@ -18,6 +18,8 @@ const (
 	WXPAYSINGLE string = "wxpay_single"
 	// WXPAYAPP 微信支付app支付标识
 	WXPAYAPP string = "wxpay_app"
+	// WXPAYMINIP 微信支付小程序支付标识
+	WXPAYMINIP string = "wxpay_minip"
 )
 
 // WXPaySingle 微信支付单商户模式主体
@@ -34,14 +36,18 @@ type WXPaySingle struct {
 	rs        rs
 }
 
-// WXPaySingleForAPP 微信单商户模式 app支付实例
-type WXPaySingleForAPP struct {
-	WXPaySingle
+// NewWXPaySingleForMINIP 获取微信单商户模式  小程序支付
+func NewWXPaySingleForMINIP(config Config) *WXPaySingle {
+	wx := NewWXPaySingle(config)
+	wx.t = WXPAYAPP
+	return wx
 }
 
 // NewWXPaySingleForAPP 获取微信单商户模式 APP支付
-func NewWXPaySingleForAPP(config Config) *WXPaySingleForAPP {
-	return &WXPaySingleForAPP{*NewWXPaySingle(config)}
+func NewWXPaySingleForAPP(config Config) *WXPaySingle {
+	wx := NewWXPaySingle(config)
+	wx.t = WXPAYAPP
+	return wx
 }
 
 // NewWXPaySingle 获取微信实例-单商户
@@ -719,10 +725,10 @@ func (WS *WXPaySingle) PayParams(req *TradeParams) (data *PayParams, e Error) {
 		case MINIPAY:
 			// 小程序支付返回接口组装好的请求参数
 			params := map[string]string{
-				"appid":     WS.appid,
+				"appId":     WS.appid,
 				"timeStamp": fmt.Sprintf("%d", getNowSec()),
-				"noncestr":  randomString(32),
-				"package":   tmpresult.PrePayID,
+				"nonceStr":  randomString(32),
+				"package":   fmt.Sprintf("prepay_id=%s", tmpresult.PrePayID),
 				"signType":  "MD5",
 			}
 			params["paySign"] = WS.Signer(params)

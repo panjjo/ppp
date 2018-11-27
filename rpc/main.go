@@ -10,7 +10,8 @@ import (
 var alipay *ppp.AliPay
 var wxpay *ppp.WXPay
 var wxpaySingle *ppp.WXPaySingle
-var wxpaySingleForAPP *ppp.WXPaySingleForAPP
+var wxpaySingleForAPP *ppp.WXPaySingle
+var wxpaySingleForMINIP *ppp.WXPaySingle
 
 var configPath = flag.String("path", "", "配置文件地址")
 var scheme = flag.String("scheme", "rpc", "启动方式")
@@ -39,6 +40,10 @@ func main() {
 	}
 	if config.WXSingle.APP.Use {
 		wxpaySingleForAPP = ppp.NewWXPaySingleForAPP(config.WXSingle.APP)
+		ppp.Log.DEBUG.Println("wxpay_app init succ")
+	}
+	if config.WXSingle.MINIP.Use {
+		wxpaySingleForMINIP = ppp.NewWXPaySingleForMINIP(config.WXSingle.APP)
 		ppp.Log.DEBUG.Println("wxpay_app init succ")
 	}
 	hproseRPC()
