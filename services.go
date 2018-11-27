@@ -38,5 +38,7 @@ type Services struct {
 	WXPayAPPPayParams func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_app_PayParams"`
 
 	// wxpay_minip 微信单商户小程序支付
-	WXPayAPPPayMINIPParams func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_minip_PayParams"`
+	WXPayMINIPPayParams func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_minip_PayParams"`
+	WXPayMINIPTradeInfo func(req *Trade, sync bool) (trade *Trade, e Error) `name:"wxpay_minip_TradeInfo"`
+	WXPayMINIPRefund    func(req *Refund) (refund *Refund, e Error)         `name:"wxpay_minip_Refund"`
 }

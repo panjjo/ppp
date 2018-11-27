@@ -23,6 +23,9 @@ func hproseRPC() {
 	if config.WXSingle.APP.Use {
 		service.AddAllMethods(&WXPayAPPHproseRPC{}, rpc.Options{NameSpace: ppp.WXPAYAPP})
 	}
+	if config.WXSingle.MINIP.Use {
+		service.AddAllMethods(&WXPayMINIPHproseRPC{}, rpc.Options{NameSpace: ppp.WXPAYMINIP})
+	}
 	service.AddBeforeFilterHandler(logFilter{ppp.Log}.handler)
 	l, e := net.Listen("tcp", config.Sys.ADDR)
 	if e != nil {
@@ -232,4 +235,14 @@ type WXPayMINIPHproseRPC struct {
 func (A *WXPayMINIPHproseRPC) PayParams(req *ppp.TradeParams) (data *ppp.PayParams, e ppp.Error) {
 	tmp := *wxpaySingleForMINIP
 	return tmp.PayParams(req)
+}
+// TradeInfo ...
+func (A *WXPayMINIPHproseRPC) TradeInfo(req *ppp.Trade, sync bool) (trade *ppp.Trade, e ppp.Error) {
+	tmp := *wxpaySingleForMINIP
+	return tmp.TradeInfo(req, sync)
+}
+// Refund ...
+func (A *WXPayMINIPHproseRPC) Refund(req *ppp.Refund) (refund *ppp.Refund, e ppp.Error) {
+	tmp := *wxpaySingleForMINIP
+	return tmp.Refund(req)
 }

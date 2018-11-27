@@ -43,8 +43,8 @@ func main() {
 		ppp.Log.DEBUG.Println("wxpay_app init succ")
 	}
 	if config.WXSingle.MINIP.Use {
-		wxpaySingleForMINIP = ppp.NewWXPaySingleForMINIP(config.WXSingle.APP)
-		ppp.Log.DEBUG.Println("wxpay_app init succ")
+		wxpaySingleForMINIP = ppp.NewWXPaySingleForMINIP(config.WXSingle.MINIP)
+		ppp.Log.DEBUG.Println("wxpay_minip init succ")
 	}
 	hproseRPC()
 }
