@@ -29,7 +29,7 @@ type Services struct {
 	WXPaySingleTradeInfo func(req *Trade, sync bool) (trade *Trade, e Error) `name:"wxpay_single_TradeInfo"`
 	WXPaySingleCancel    func(req *Trade) (e Error)                          `name:"wxpay_single_Cancel"`
 	WXPaySinglePayParams func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_single_PayParams"`
-	WXPaySignleMchPay    func(req *MchPay) (string, Error)                   `name:"wxpay_signle_MchPay"`
+	WXPaySingleMchPay    func(req *MchPay) (string, Error)                   `name:"wxpay_single_MchPay"`
 
 	// wxpay_app 微信单商户APP支付
 	WXPayAPPBarPay    func(req *BarPay) (trade *Trade, e Error)           `name:"wxpay_app_BarPay"`
