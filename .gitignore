@@ -8,3 +8,4 @@ config.yml
 main
 .vscode/*
 *.DS_Store
+.idea/

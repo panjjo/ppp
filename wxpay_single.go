@@ -105,6 +105,95 @@ type wxResult struct {
 	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
 }
 
+type wxMchPayRequest struct {
+	XMLName xml.Name `xml:"xml"`
+	// required
+	AppID string `xml:"appid"`  // 公众账号ID
+	MchID string `xml:"mch_id"` // 商户号
+	// SubMchID       string `xml:"sub_mch_id"`       // 子商户ID
+	// SubAppID       string `xml:"sub_appid"`        // 子商户公众号ID
+	NonceStr       string `xml:"nonce_str"`        // 随机字符串
+	OutTradeID     string `xml:"parnter_trade_no"` // 商户订单号
+	OpenID         string `xml:"openid"`           // appid下对应的用户openid
+	CheckName      string `xml:"check_name"`       // NO_CHECK：不校验真实姓名 FORCE_CHECK：强校验真实姓名
+	UserName       string `xml:"re_user_name"`     // 收款用户真实姓名
+	Amount         int64  `xml:"amount"`           // 订单金额
+	Desc           string `xml:"desc"`             // 付款备注
+	SpbillCreateIP string `xml:"spbill_create_ip"` // 终端IP
+	Sign           string `xml:"sign"`             // 签名
+}
+
+// wxMchPayResult 微信企业付款返回结构
+type wxMchPayResult struct {
+	XMLName xml.Name `xml:"xml"`
+
+	ReturnCode string `xml:"return_code"` // 返回状态码
+	ReturnMsg  string `xml:"return_msg"`  // 返回信息
+
+	// when return_code == SUCCESS
+	AppID      string `xml:"appid"`        // 公众账号ID
+	MchID      string `xml:"mch_id"`       // 商户号
+	DeviceInfo string `xml:"device_info"`  // 设备号
+	NonceStr   string `xml:"nonce_str"`    // 随机字符串
+	Sign       string `xml:"sign"`         // 签名
+	ResultCode string `xml:"result_code"`  // 业务结果
+	ErrCode    string `xml:"err_code"`     // 错误代码
+	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
+
+	OutTradeID string `xml:"parnter_trade_no"` // 商户订单号
+	TradeID    string `xml:"payment_no"`       // 微信付款单号
+}
+
+// MchPay 企业付款 到 微信零钱包
+// 单商户模式调用
+// 默认开启真实姓名强验证
+func (WS *WXPaySingle) MchPay(req *MchPay) (tid string, e Error) {
+	params := wxMchPayRequest{
+		AppID:          WS.appid,
+		MchID:          WS.serviceid,
+		NonceStr:       randomString(32),
+		OutTradeID:     req.OutTradeID,
+		OpenID:         req.OpenID,
+		CheckName:      "FORCE_CHECK",
+		UserName:       req.UserName,
+		Amount:         req.Amount,
+		Desc:           req.Desc,
+		SpbillCreateIP: req.IPAddr,
+	}
+	params.Sign = WS.Signer(structToMap(params, "xml"))
+	postBody, err := xml.Marshal(params)
+	rq := requestSimple{
+		url:  WS.url + "/mmpaymkttransfers/promotion/transfers",
+		body: postBody,
+		tls:  true,
+	}
+	rq.fs = func(result interface{}, next Status, err error) (interface{}, error) {
+		switch next {
+		case netConnErr, nextRetry:
+			// 超时，异常立刻重试
+			time.Sleep(1 * time.Second)
+			return WS.Request(rq)
+		default:
+			return result, err
+		}
+	}
+	info, err := WS.Request(rq)
+	if err != nil {
+		e.Msg = string(jsonEncode(info))
+		if v, ok := wxErrMap[err.Error()]; ok {
+			e.Code = v
+		} else {
+			e.Code = PayErr
+		}
+	} else {
+		// 转账成功
+		tmpresult := wxRefundResult{}
+		xml.Unmarshal(info.([]byte), &tmpresult)
+		tid = tmpresult.TradeID
+	}
+	return
+}
+
 // wxBarPayRequest 微信条码支付请求结构
 type wxBarPayRequest struct {
 	XMLName xml.Name `xml:"xml"`
@@ -307,7 +396,8 @@ func (WS *WXPaySingle) Refund(req *Refund) (refund *Refund, e Error) {
 		e.Code = TradeErrNotFound
 		return
 	}
-	if trade.Status != TradeStatusSucc {
+	// 订单存在多次退款情况
+	if trade.Status != TradeStatusSucc && trade.Status != TradeStatusRefund {
 		e.Code = TradeErrStatus
 		return
 	}

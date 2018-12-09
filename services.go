@@ -2,7 +2,7 @@ package ppp
 
 // Services hprose rpc模式注册服务
 type Services struct {
-	//alipay 支付宝
+	// alipay 支付宝
 	AliPayPayParams  func(req *TradeParams) (data *PayParams, e Error)   `name:"alipay_PayParams"`
 	AliPayBarPay     func(req *BarPay) (trade *Trade, e Error)           `name:"alipay_BarPay"`
 	AliPayRefund     func(req *Refund) (refund *Refund, e Error)         `name:"alipay_Refund"`
@@ -29,6 +29,7 @@ type Services struct {
 	WXPaySingleTradeInfo func(req *Trade, sync bool) (trade *Trade, e Error) `name:"wxpay_single_TradeInfo"`
 	WXPaySingleCancel    func(req *Trade) (e Error)                          `name:"wxpay_single_Cancel"`
 	WXPaySinglePayParams func(req *TradeParams) (data *PayParams, e Error)   `name:"wxpay_single_PayParams"`
+	WXPaySignleMchPay    func(req *MchPay) (string, Error)                   `name:"wxpay_signle_MchPay"`
 
 	// wxpay_app 微信单商户APP支付
 	WXPayAPPBarPay    func(req *BarPay) (trade *Trade, e Error)           `name:"wxpay_app_BarPay"`

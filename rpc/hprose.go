@@ -193,6 +193,12 @@ func (A *WXPaySingleHproseRPC) Cancel(req *ppp.Trade) (e ppp.Error) {
 	return tmp.Cancel(req)
 }
 
+// MchPay ...
+func (A *WXPaySingleHproseRPC) MchPay(req *ppp.MchPay) (tid string, e ppp.Error) {
+	tmp := *wxpaySingle
+	return tmp.MchPay(req)
+}
+
 // WXPayAPPHproseRPC ...
 type WXPayAPPHproseRPC struct {
 }
@@ -236,11 +242,13 @@ func (A *WXPayMINIPHproseRPC) PayParams(req *ppp.TradeParams) (data *ppp.PayPara
 	tmp := *wxpaySingleForMINIP
 	return tmp.PayParams(req)
 }
+
 // TradeInfo ...
 func (A *WXPayMINIPHproseRPC) TradeInfo(req *ppp.Trade, sync bool) (trade *ppp.Trade, e ppp.Error) {
 	tmp := *wxpaySingleForMINIP
 	return tmp.TradeInfo(req, sync)
 }
+
 // Refund ...
 func (A *WXPayMINIPHproseRPC) Refund(req *ppp.Refund) (refund *ppp.Refund, e ppp.Error) {
 	tmp := *wxpaySingleForMINIP
