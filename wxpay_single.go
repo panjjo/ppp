@@ -108,12 +108,12 @@ type wxResult struct {
 type wxMchPayRequest struct {
 	XMLName xml.Name `xml:"xml"`
 	// required
-	AppID string `xml:"appid"`  // 公众账号ID
-	MchID string `xml:"mch_id"` // 商户号
+	AppID string `xml:"mch_appid"` // 公众账号ID
+	MchID string `xml:"mchid"`     // 商户号
 	// SubMchID       string `xml:"sub_mch_id"`       // 子商户ID
 	// SubAppID       string `xml:"sub_appid"`        // 子商户公众号ID
 	NonceStr       string `xml:"nonce_str"`        // 随机字符串
-	OutTradeID     string `xml:"parnter_trade_no"` // 商户订单号
+	OutTradeID     string `xml:"partner_trade_no"` // 商户订单号
 	OpenID         string `xml:"openid"`           // appid下对应的用户openid
 	CheckName      string `xml:"check_name"`       // NO_CHECK：不校验真实姓名 FORCE_CHECK：强校验真实姓名
 	UserName       string `xml:"re_user_name"`     // 收款用户真实姓名
@@ -131,8 +131,8 @@ type wxMchPayResult struct {
 	ReturnMsg  string `xml:"return_msg"`  // 返回信息
 
 	// when return_code == SUCCESS
-	AppID      string `xml:"appid"`        // 公众账号ID
-	MchID      string `xml:"mch_id"`       // 商户号
+	AppID      string `xml:"mch_appid"`    // 公众账号ID
+	MchID      string `xml:"mchid"`        // 商户号
 	DeviceInfo string `xml:"device_info"`  // 设备号
 	NonceStr   string `xml:"nonce_str"`    // 随机字符串
 	Sign       string `xml:"sign"`         // 签名
@@ -140,7 +140,7 @@ type wxMchPayResult struct {
 	ErrCode    string `xml:"err_code"`     // 错误代码
 	ErrCodeDes string `xml:"err_code_des"` // 错误代码描述
 
-	OutTradeID string `xml:"parnter_trade_no"` // 商户订单号
+	OutTradeID string `xml:"partner_trade_no"` // 商户订单号
 	TradeID    string `xml:"payment_no"`       // 微信付款单号
 }
 
