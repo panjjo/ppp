@@ -812,8 +812,8 @@ func (WS *WXPaySingle) PayParams(req *TradeParams) (data *PayParams, e Error) {
 			appparams["sign"] = WS.Signer(appparams)
 			data.SourceData = string(jsonEncode(appparams))
 			data.Params = httpBuildQuery(appparams)
-		case MINIPAY:
-			// 小程序支付返回接口组装好的请求参数
+		case MINIPAY, JSPAY:
+			// 小程序和公众号支付返回接口组装好的请求参数
 			params := map[string]string{
 				"appId":     WS.appid,
 				"timeStamp": fmt.Sprintf("%d", getNowSec()),
@@ -824,11 +824,6 @@ func (WS *WXPaySingle) PayParams(req *TradeParams) (data *PayParams, e Error) {
 			params["paySign"] = WS.Signer(params)
 			data.SourceData = string(jsonEncode(params))
 			data.Params = httpBuildQuery(params)
-		case JSPAY:
-			// 公众号支付 返回预支付id
-			data.SourceData = string(jsonEncode(map[string]string{
-				"perpay_id": tmpresult.PrePayID,
-			}))
 		case CBARPAY, WEBPAY:
 			// 顾客扫码支付 返回的是二维码地址
 			data.SourceData = string(jsonEncode(map[string]string{
