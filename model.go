@@ -1,6 +1,8 @@
 package ppp
 
 import (
+	"crypto/rsa"
+	"crypto/tls"
 	"io/ioutil"
 
 	"github.com/panjjo/ppp/db"
@@ -78,6 +80,7 @@ type requestSimple struct {
 	body []byte
 	fs   func(interface{}, Status, error) (interface{}, error)
 	tls  bool
+	ctx  *Context
 
 	relKey string
 }
@@ -87,32 +90,28 @@ type Configs struct {
 	AliPay Config `yaml:"alipay"`
 	WXPay  Config `yaml:"wxpay"`
 
-	WXSingle WXSingleConfig `yaml:"wxpay_single"`
+	WXSingle Config `yaml:"wxpay_single"`
 
 	DB db.Config `yaml:"database"`
 
 	Sys SysConfig `yaml:"sys"`
 }
-
-// WXSingleConfig 单商户模式配置
-type WXSingleConfig struct {
-	// 单商户模式的微信支付，app支付必须单独一套
-	APP Config `yaml:"app"`
-	// 其他:公众号，扫码，h5等
-	Other Config `yaml:"other"`
-	// 小程序支付
-	MINIP Config `yaml:"minip"`
+type Config struct {
+	ConfigSingle `yaml:",inline"`
+	Apps         []ConfigSingle `yaml:"apps"` // 多个app
 }
 
-// Config 单项配置文件
-type Config struct {
-	Use       bool   `yaml:"use"`
-	AppID     string `yaml:"appid"`
-	Secret    string `yaml:"secret"`
-	CertPath  string `yaml:"certpath"`
-	URL       string `yaml:"url"`
-	ServiceID string `yaml:"serviceid"`
-	Notify    string `yaml:"notify"`
+// ConfigSingle 单项配置文件
+type ConfigSingle struct {
+	Use       bool     `yaml:"use"`
+	Tag       string   `yaml:"tag"`
+	AppID     string   `yaml:"appid"`
+	AppIDS    []string `yaml:"appids"` // 存在多个appid使用同一个商户号
+	Secret    string   `yaml:"secret"`
+	CertPath  string   `yaml:"certpath"`
+	URL       string   `yaml:"url"`
+	ServiceID string   `yaml:"serviceid"`
+	Notify    string   `yaml:"notify"`
 }
 
 // SysConfig 系统配置文件
@@ -157,17 +156,21 @@ type MchPay struct {
 	IPAddr     string // ipdizhi
 }
 
-// rs 请求过程中的一些信息
-type rs struct {
-	t      int64 // 请求开始时间
-	auth   *Auth // 权限信息
-	userid string
-}
-
 // PayParams 获取支付参数
 type PayParams struct {
 	// SourceData 支付参数的map数据jsonencode
 	SourceData string
 	// Params urlencode的数据
 	Params string
+}
+
+type config struct {
+	appid     string
+	private   *rsa.PrivateKey // 应用私钥
+	public    *rsa.PublicKey  // 支付宝公钥
+	url       string
+	serviceid string
+	notify    string      // 异步回调地址
+	tlsConfig *tls.Config // 应用私钥
+	secret    string      // 支付密钥
 }

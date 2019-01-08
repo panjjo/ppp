@@ -47,7 +47,10 @@ type Trade struct {
 	PayTime    int64
 	Create     int64
 	SourceID   string
-	From       string // 单据来源 alipay wxpay
+	// AppID  收款方id
+	AppID string
+	// Form 单据来源 alipay wxpay
+	From string
 }
 
 // TradeParams  支付参数请求结构

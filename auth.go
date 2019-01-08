@@ -3,24 +3,29 @@ package ppp
 const (
 	authTable = "auths"
 
-	//AuthStatusSucc 权限授权成功
+	// AuthStatusSucc 权限授权成功
 	AuthStatusSucc Status = 1
-	//AuthStatusWaitSigned 等待签约
+	// AuthStatusWaitSigned 等待签约
 	AuthStatusWaitSigned Status = 0
 )
 
 // Auth 授权使用
 type Auth struct {
-	ID      string
-	Token   string
-	Status  Status
-	MchID   string
+	ID     string
+	Token  string
+	Status Status
+	// MchID 商户号
+	MchID string
+	// Form 来源 alipay wxpay
 	From    string
 	Account string
-	AppID   string //微信子商户appid
+	// AppID 授权对应的appid
+	AppID string
+	// SubAppID 微信子商户appid
+	SubAppID string
 }
 
-//获取授权
+// 获取授权
 func getToken(mchid, t string) *Auth {
 	session := DBPool.Get()
 	defer session.Close()
@@ -32,14 +37,14 @@ func getToken(mchid, t string) *Auth {
 	return auth
 }
 
-//刷新授权
+// 刷新授权
 func updateToken(mchid, t string, update interface{}) error {
 	session := DBPool.Get()
 	defer session.Close()
 	return session.Update(authTable, map[string]interface{}{"mchid": mchid, "from": t}, update)
 }
 
-//保存授权
+// 保存授权
 func saveToken(auth *Auth) error {
 	session := DBPool.Get()
 	defer session.Close()
