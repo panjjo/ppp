@@ -5,8 +5,23 @@ alipay: # 支付宝 服务商，单商户统一用同一套
   url: https://openapi.alipay.com/gateway.do # alipay请求地址
   serviceid: xxxxxx # 服务商户id
   notify: http:// # 异步通知回调地址
+  apps:   # 多个应用收款时请配置apps，默认收款app为第一层的，如果未设置取apps里第一个可用的为默认收款app
+    - 
+      use: true # 是否开启alipay
+      appid: xxxxx # 支付宝appid
+      certpath: cert_prod/alipay # alipay 证书存放目录
+      url: https://openapi.alipay.com/gateway.do # alipay请求地址
+      serviceid: xxxxxx # 服务商户id
+      notify: http:// # 异步通知回调地址
+    - 
+      use: true # 是否开启alipay
+      appid: xxxxx # 支付宝appid
+      certpath: cert_prod/alipay # alipay 证书存放目录
+      url: https://openapi.alipay.com/gateway.do # alipay请求地址
+      serviceid: xxxxxx # 服务商户id
+      notify: http:// # 异步通知回调地址
 
-wxpay: # 微信支付 服务商模式
+wxpay: # 微信支付 服务商模式  单app设置方式
   use: true
   serviceid: xxxxxx  # 服务商商户ID 服务商mchid
   appid: wxfa9c991xxxxxx  # 服务商appid
@@ -14,20 +29,42 @@ wxpay: # 微信支付 服务商模式
   url: https://api.mch.weixin.qq.com  # 微信支付请求地址
   secret: sRlaPxH3mIGxxxxxxx  # 微信支付密钥
   notify: http:// # 异步通知回调地址
+  apps:
+    -
+      use: true
+      serviceid: xxxxxx  # 服务商商户ID 服务商mchid
+      appid: wxfa9c991xxxxxx  # 服务商appid
+      certpath: cert_prod/wxpay  # 微信支付 证书存放目录
+      url: https://api.mch.weixin.qq.com  # 微信支付请求地址
+      secret: sRlaPxH3mIGxxxxxxx  # 微信支付密钥
+      notify: http:// # 异步通知回调地址
 
 wxpay_single: # 微信支付 单商户模式
-  app: # 微信app支付配置
-    use: true
-    serviceid: xxxxxxx  # 商户ID
-    appid: wx534a6xxxxx2664bxx  # 服务商appid
-    certpath: cert_prod/wxpay_app  # 微信支付 证书存放目录
-    url: https://api.mch.weixin.qq.com  # 微信支付请求地址
-    secret: LsfTChPd3REAPxxxxxxxDc  # 微信支付密钥
-    notify: http:// # 异步通知回调地址
-  other: # 微信除app支付外其他支付
+  use: true
+  serviceid: xxxxxxx  # 商户ID
+  appid: wx534a6xxxxx2664bxx  # 服务商appid
+  appids:  # 一个商户id绑定多个app时设置方式
+    - 1234567
+    - abcefgh
+  certpath: cert_prod/wxpay_app  # 微信支付 证书存放目录
+  url: https://api.mch.weixin.qq.com  # 微信支付请求地址
+  secret: LsfTChPd3REAPxxxxxxxDc  # 
+  apps: 
+    -
+      use: true
+      serviceid: xxxxxxx  # 商户ID
+      appid: wx534a6xxxxx2664bxx  # 服务商appid
+      certpath: cert_prod/wxpay_app  # 微信支付 证书存放目录
+      url: https://api.mch.weixin.qq.com  # 微信支付请求地址
+      secret: LsfTChPd3REAPxxxxxxxDc  # 微信支付密钥
+      notify: http:// # 异步通知回调地址
+    - 
       use: true
       serviceid: xxxxx  # 商户ID
       appid: wxfa9xxxxxxxx  # 服务商appid
+      appids:  # 一个商户id绑定多个app时设置方式
+        - 1234567
+        - abcefgh
       certpath: cert_prod/wxpay_single  # 微信支付 证书存放目录
       url: https://api.mch.weixin.qq.com  # 微信支付请求地址
       secret: dDaXVMRxxxxxxxx  # 微信支付密钥
