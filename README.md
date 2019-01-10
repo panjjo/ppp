@@ -23,6 +23,38 @@ hprose 项目地址 github.com/hprose/hprose-golang
 ### Config
 参考config.tmp.yml
 
+## 调用流程
+    所有请求都有一个参数叫tag 标识使用那一套商户号进行收款，传空标识使用默认商户进行收款，
+    服务商，单商户都是一样的
+### 支付宝
+    支付宝服务商账号可直接用来收款，所以单商户收款配置就和服务商配置一样，
+    可以直接使用服务商配置做单商户收款
++ 服务商模式
+  - 网站授权获得app_auth_code [文档地址](https://docs.open.alipay.com/20160728150111277227/intro)
+  - 使用app_auth_code 调用 Services.AliPayAuth 进行支付宝授权
+  - Services.AliPayAuthSigned 验证授权是否签约（比如当面付等功能是否有权限）
+  - 绑定用户（可选）不绑定用户的，支付，退款，查询等直接传入mchid即可
+    + Services.AliPayBindUser 将userid与mchid绑定，一个mchid可绑定多个userid，一个userid只能绑定一个mchid
+    + Services.AliPayUnBindUser userid与mchid解绑
+  - 扫码支付 Services.AliPayBarPay 可传入userid 或 mchid 来确定收款用户
+  - 退款 Services.AliPayRefund
+  - 查询 Services.AliPayTradeInfo
++ 单商户模式
+  - 直接调用对应接口，userid,mchid 都传入空，会对应操作tag所匹配到的商户数据
+### 微信
+    微信服务商身份不能收款，所以说单商户的需要单独配置，wxpay=服务商 wxpay_single单商户模式，
+    微信单商户模式下，同一个商户号可以绑定多个appid进行收款，具体看配置文件配置方法说明
++ 服务商模式
+  - Services.WXPayAuthSigned 创建微信账号并验证是否有权限
+   - 绑定用户（可选）不绑定用户的，支付，退款，查询等直接传入mchid即可
+    + Services.WXPayBindUser 将userid与mchid绑定，一个mchid可绑定多个userid，一个userid只能绑定一个mchid
+    + Services.WXPayUnBindUser userid与mchid解绑
+  - 扫码支付 Services.WXPayBarPay 可传入userid 或 mchid 来确定收款用户
+  - 退款 Services.WXPayRefund
+  - 查询 Services.WXPayTradeInfo
++ 单商户模式
+  - 直接调用对应接口，userid,mchid 都传入空，会对应操作tag所匹配到的商户数据
+  
 ## 支付宝支付
 ### 单商户模式/服务商模式
 ### 扫码支付

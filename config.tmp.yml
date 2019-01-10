@@ -1,7 +1,7 @@
 alipay: # 支付宝 服务商，单商户统一用同一套
   use: true # 是否开启alipay
   appid: xxxxx # 支付宝appid
-  certpath: cert_prod/alipay # alipay 证书存放目录
+  certpath: cert_prod/alipay # alipay 证书存放目录,目下需有两个文件 private.key应用私钥,public.key支付宝公钥
   url: https://openapi.alipay.com/gateway.do # alipay请求地址
   serviceid: xxxxxx # 服务商户id
   notify: http:// # 异步通知回调地址
@@ -25,11 +25,11 @@ wxpay: # 微信支付 服务商模式  单app设置方式
   use: true
   serviceid: xxxxxx  # 服务商商户ID 服务商mchid
   appid: wxfa9c991xxxxxx  # 服务商appid
-  certpath: cert_prod/wxpay  # 微信支付 证书存放目录
+  certpath: cert_prod/wxpay  # 微信支付 证书存放目录，目录下须有cert.p12 对应商户号的微信支付证书文件
   url: https://api.mch.weixin.qq.com  # 微信支付请求地址
   secret: sRlaPxH3mIGxxxxxxx  # 微信支付密钥
   notify: http:// # 异步通知回调地址
-  apps:
+  apps: # 微信多服务商收款，请配置apps，多个服务商信息
     -
       use: true
       serviceid: xxxxxx  # 服务商商户ID 服务商mchid
@@ -37,12 +37,12 @@ wxpay: # 微信支付 服务商模式  单app设置方式
       certpath: cert_prod/wxpay  # 微信支付 证书存放目录
       url: https://api.mch.weixin.qq.com  # 微信支付请求地址
       secret: sRlaPxH3mIGxxxxxxx  # 微信支付密钥
-      notify: http:// # 异步通知回调地址
+      notify: http:// # 异步通知回调地址 微信的请注意不要使用https回调
 
 wxpay_single: # 微信支付 单商户模式
   use: true
   serviceid: xxxxxxx  # 商户ID
-  appid: wx534a6xxxxx2664bxx  # 服务商appid
+  appid: wx534a6xxxxx2664bxx  # appid 单一app设置方式
   appids:  # 一个商户id绑定多个app时设置方式
     - 1234567
     - abcefgh
@@ -53,22 +53,22 @@ wxpay_single: # 微信支付 单商户模式
     -
       use: true
       serviceid: xxxxxxx  # 商户ID
-      appid: wx534a6xxxxx2664bxx  # 服务商appid
+      appid: wx534a6xxxxx2664bxx  # appid 单一app设置方式
       certpath: cert_prod/wxpay_app  # 微信支付 证书存放目录
       url: https://api.mch.weixin.qq.com  # 微信支付请求地址
       secret: LsfTChPd3REAPxxxxxxxDc  # 微信支付密钥
-      notify: http:// # 异步通知回调地址
+      notify: http:// # 异步通知回调地址 微信的请注意不要使用https回调
     - 
       use: true
       serviceid: xxxxx  # 商户ID
-      appid: wxfa9xxxxxxxx  # 服务商appid
+      appid: wxfa9xxxxxxxx  # appid 单一app设置方式
       appids:  # 一个商户id绑定多个app时设置方式
         - 1234567
         - abcefgh
       certpath: cert_prod/wxpay_single  # 微信支付 证书存放目录
       url: https://api.mch.weixin.qq.com  # 微信支付请求地址
       secret: dDaXVMRxxxxxxxx  # 微信支付密钥
-      notify: http:// # 异步通知回调地址
+      notify: http:// # 异步通知回调地址 微信的请注意不要使用https回调
 
 database:
   type: mongo # 数据库类型
