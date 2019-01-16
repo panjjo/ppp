@@ -7,7 +7,7 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 
-	"github.com/mitchellh/packer/builder/azure/pkcs12"
+	"golang.org/x/crypto/pkcs12"
 )
 
 // LoadPrivateKeyFromFile 从文件中加载私钥
