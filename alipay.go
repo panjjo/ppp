@@ -535,7 +535,7 @@ func (A *AliPay) AuthSigned(ctx *Context, req *Auth) (auth *Auth, e Error) {
 		auth.Account = req.Account
 	}
 	// 更新authinfo
-	updateToken(ctx.mchid(), ALIPAY, auth)
+	updateToken(ctx.mchid(), ctx.appid(), auth)
 
 	// 更新所有绑定过此auth的用户数据
 	updateUserMulti(map[string]interface{}{"mchid": ctx.mchid(), "type": ALIPAY}, map[string]interface{}{"status": UserSucc})
@@ -570,7 +570,7 @@ func (A *AliPay) Auth(ctx *Context, code string) (auth *Auth, e Error) {
 		auth.Token = tmpresult["app_auth_token"].(string)
 		// 保存用户授权
 		if auth.ID != "" {
-			err = updateToken(ctx.mchid(), ALIPAY, auth)
+			err = updateToken(ctx.mchid(), ctx.appid(), auth)
 		} else {
 			auth.ID = randomTimeString()
 			auth.MchID = mchid

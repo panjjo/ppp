@@ -124,7 +124,7 @@ func (c *Context) getAuth(userid, mchid string) *Auth {
 		}
 	} else {
 		c.uid = userid
-		c.auth = token(userid, mchid, c.Type)
+		c.auth = token(userid, mchid, c.Type, c.appid())
 	}
 	return c.auth
 }

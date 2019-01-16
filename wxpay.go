@@ -96,7 +96,7 @@ func (W *WXPay) BindUser(ctx *Context, req *User) (user *User, e Error) {
 		e.Msg = "userid mchid 必传"
 		return
 	}
-	auth := getToken(req.MchID, WXPAY)
+	auth := getToken(req.MchID, ctx.appid())
 	if auth.ID == "" {
 		// 授权不存在
 		e.Code = AuthErr

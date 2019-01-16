@@ -11,7 +11,8 @@ func main() {
 	service := &ppp.Services{}
 	client.UseService(&service)
 	// fmt.Println(service.AliPayAuth("d70f66b37f5e40259b56277b29edbX49"))
-	fmt.Println(service.AliPayBindUser(&ppp.User{UserID:"201901080932523",MchID:"2088021225710398"}))
+	// fmt.Println(service.AliPayBindUser(&ppp.User{UserID:"201901080932523",MchID:"2088021225710398"},"2019010262749621"))
+	fmt.Println(service.AliPayTradeInfo(&ppp.Trade{OutTradeID: "123456", MchID: "2088021225710398"}, true, "2019010262749621"))
 	// fmt.Println(service.WXPaySingleBarPay(&ppp.BarPay{
 	// 	MchID:      "1490825832",
 	// 	Amount:     1,
@@ -25,4 +26,3 @@ func main() {
 	// 	OutTradeID:"18112411094200007",
 	// },true))
 }
-
