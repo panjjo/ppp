@@ -69,16 +69,9 @@ func wxConfig(config ConfigSingle) (wx config) {
 // NewWXPaySingle 获取微信实例-单商户
 func NewWXPaySingle(cfgs Config) *WXPaySingle {
 	wxpaySingle = &WXPaySingle{cfgs: map[string]config{}}
-	if cfgs.AppID != "" {
-		// 最外层设置了，把最外层的当做默认收款账号
-		wxpaySingle.def = wxConfig(cfgs.ConfigSingle)
-		if cfgs.Tag != "" {
-			wxpaySingle.cfgs[cfgs.Tag] = wxpaySingle.def
-		} else {
-			wxpaySingle.cfgs[cfgs.AppID] = wxpaySingle.def
-		}
+	if cfgs.AppID != "" || len(cfgs.AppIDS) > 0 {
+		cfgs.Apps = append([]ConfigSingle{cfgs.ConfigSingle}, cfgs.Apps...)
 	}
-	// 加载其他收款账号
 	for _, cfg := range cfgs.Apps {
 		c := wxConfig(cfg)
 		if wxpaySingle.def.appid == "" {
@@ -89,11 +82,10 @@ func NewWXPaySingle(cfgs Config) *WXPaySingle {
 		cfg.AppIDS = append(cfg.AppIDS, cfg.AppID)
 		for _, appid := range cfg.AppIDS {
 			if wxpaySingle.def.appid == "" {
-				c.appid = appid
 				wxpaySingle.def = c
 			}
+			c.appid = appid
 			wxpaySingle.cfgs[appid] = c
-
 		}
 	}
 	return wxpaySingle
@@ -329,7 +321,7 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 		result.From = WXPAY
 		result.Type = BARPAY
 		result.UserID = ctx.userid()
-		result.MchID = ctx.mchid()
+		result.MchID = ctx.serviceid()
 		result.UpTime = ctx.gt()
 		result.AppID = ctx.appid()
 		result.PayTime = ctx.gt()
@@ -469,6 +461,8 @@ func (WS *WXPaySingle) Refund(ctx *Context, req *Refund) (refund *Refund, e Erro
 			RefundTime:  ctx.gt(),
 			Create:      ctx.gt(),
 			Memo:        req.Memo,
+			AppID:       ctx.appid(),
+			From:        WXPAY,
 		}
 		saveRefund(refund)
 	}
@@ -655,10 +649,11 @@ func (WS *WXPaySingle) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Tr
 			Create:     trade.Create,
 			Type:       trade.Type,
 			From:       WXPAY,
+			AppID:      trade.AppID,
 			PayTime:    str2Sec("20060102150405", tmpresult.TimeEnd),
 		}
 		trade.UserID = ctx.userid()
-		trade.MchID = ctx.mchid()
+		trade.MchID = ctx.serviceid()
 		if trade.ID == "" {
 			// 本地不存在
 			// trade.ID = randomTimeString()

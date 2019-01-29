@@ -46,7 +46,6 @@ type Trade struct {
 	UpTime     int64
 	PayTime    int64
 	Create     int64
-	SourceID   string
 	// AppID  收款方id
 	AppID string
 	// Form 单据来源 alipay wxpay

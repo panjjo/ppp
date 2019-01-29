@@ -61,15 +61,8 @@ func aliConfig(config ConfigSingle) (a config) {
 func NewAliPay(cfgs Config) *AliPay {
 	alipay = &AliPay{cfgs: map[string]config{}}
 	if cfgs.AppID != "" {
-		// 最外层设置了，把最外层的当做默认收款账号
-		alipay.def = aliConfig(cfgs.ConfigSingle)
-		if cfgs.Tag != "" {
-			alipay.cfgs[cfgs.Tag] = alipay.def
-		} else {
-			alipay.cfgs[cfgs.AppID] = alipay.def
-		}
+		cfgs.Apps = append([]ConfigSingle{cfgs.ConfigSingle}, cfgs.Apps...)
 	}
-	// 加载其他收款账号
 	for _, cfg := range cfgs.Apps {
 		c := aliConfig(cfg)
 		if alipay.def.appid == "" {
@@ -351,6 +344,8 @@ func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
 			UpTime:      ctx.gt(),
 			RefundTime:  ctx.gt(),
 			Create:      ctx.gt(),
+			From:        ALIPAY,
+			AppID:       ctx.appid(),
 			Memo:        req.Memo,
 		}
 		saveRefund(refund)
@@ -480,6 +475,7 @@ func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e
 			Create:     trade.Create,
 			Type:       trade.Type,
 			From:       ALIPAY,
+			AppID:      ctx.appid(),
 		}
 		trade.MchID = ctx.mchid()
 		trade.UserID = ctx.userid()

@@ -20,7 +20,8 @@ type Refund struct {
 	UpTime      int64
 	RefundTime  int64
 	Create      int64
-	From        string //单据来源 alipay wxpay
+	AppID       string
+	From        string // 单据来源 alipay wxpay
 	Memo        string
 }
 

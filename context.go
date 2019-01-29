@@ -118,9 +118,17 @@ func (c *Context) getAuth(userid, mchid string) *Auth {
 		return c.auth
 	}
 	if userid == "" {
-		c.auth = &Auth{
-			MchID:  c.cfg.serviceid,
-			Status: AuthStatusSucc,
+		switch c.Type {
+		case ALIPAY:
+			c.auth = &Auth{
+				MchID:  c.cfg.serviceid,
+				Status: AuthStatusSucc,
+			}
+		case WXPAY:
+			c.auth = &Auth{
+				MchID:  mchid,
+				Status: AuthStatusSucc,
+			}
 		}
 	} else {
 		c.uid = userid
