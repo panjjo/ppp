@@ -157,7 +157,7 @@ func (WS *WXPaySingle) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 		MchID:          ctx.serviceid(),
 		NonceStr:       randomString(32),
 		OutTradeID:     req.OutTradeID,
-		OpenID:         req.OpenID,
+		OpenID:         req.Account,
 		CheckName:      "FORCE_CHECK",
 		UserName:       req.UserName,
 		Amount:         req.Amount,

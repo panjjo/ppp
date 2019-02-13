@@ -149,11 +149,12 @@ type BarPay struct {
 // MchPay 企业付款请求数据
 type MchPay struct {
 	OutTradeID string // 商户交易号
-	OpenID     string // appid下用户标识
 	UserName   string // 真实姓名
 	Amount     int64  // 付款金额
 	Desc       string // 付款备注
-	IPAddr     string // ipdizhi
+	IPAddr     string // ip地址
+	Account    string // 收款方账号 支付宝的为支付宝登陆账号或者支付宝唯一用户id，微信的为appid下的openid
+	AccountType string // 收款方账号类型  ID: 唯一id，login: 登录名
 }
 
 // PayParams 获取支付参数

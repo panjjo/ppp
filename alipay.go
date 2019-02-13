@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -76,6 +77,58 @@ func NewAliPay(cfgs Config) *AliPay {
 	}
 	return alipay
 }
+
+// MchPay 企业付款 到 个人支付宝账号
+// 单商户模式调用
+// 默认开启真实姓名强验证
+func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
+	params := map[string]interface{}{
+		"out_biz_no": req.OutTradeID,
+		"payee_account":req.Account,
+		"amount":fmt.Sprintf("%.2f",float64(req.Amount)/100.0),
+		"payee_real_name":req.UserName,
+		"remark":req.Desc,
+	}
+	switch req.AccountType {
+	case ACCOUNTTYPEID:
+		params["payee_type"] = "ALIPAY_USERID"
+	case ACCOUNTTYPELOGIN:
+		params["payee_type"] = "ALIPAY_LOGONID"
+	default:
+		params["payee_type"] = "ALIPAY_LOGONID"
+	}
+	// 组装系统参数
+	sysParams := A.sysParams(ctx)
+	sysParams["method"] = "alipay.fund.trans.toaccount.transfer"
+	sysParams["biz_content"] = string(jsonEncode(params))
+	sysParams["sign"] = base64Encode(A.Signer(ctx, sysParams))
+	rq := requestSimple{url: ctx.url(), get: httpBuildQuery(sysParams), relKey: "alipay_fund_trans_toaccount_transfer_response", ctx: ctx}
+	rq.fs = func(result interface{}, next Status, err error) (interface{}, error) {
+		switch next {
+		case netConnErr, nextRetry:
+			// 超时，异常立刻重试
+			time.Sleep(1 * time.Second)
+			return A.Request(rq)
+		default:
+			return result, err
+		}
+	}
+	info, err := A.Request(rq)
+	if err != nil {
+		e.Msg = string(jsonEncode(info))
+		if v, ok := aliErrMap[err.Error()]; ok {
+			e.Code = v
+		} else {
+			e.Code = PayErr
+		}
+	} else {
+		// 转账成功
+		tmpresult := info.(map[string]interface{})
+		tid = tmpresult["order_id"].(string)
+	}
+	return
+}
+
 
 // PayParams 获取支付参数
 // 用于前段请求，不想暴露证书的私密信息的可用此方法组装请求参数，前端只负责请求

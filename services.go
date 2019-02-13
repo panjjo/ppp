@@ -12,6 +12,7 @@ type Services struct {
 	AliPayAuth       func(code string,tag string) (auth *Auth, e Error)             `name:"alipay_auth"`
 	AliPayBindUser   func(req *User,tag string) (user *User, e Error)               `name:"alipay_BindUser"`
 	AliPayUnBindUser func(req *User,tag string) (user *User, e Error)               `name:"alipay_UnBindUser"`
+	AliPayMchPay     func(req *MchPay,tag string) (string, Error)                   `name:"alipay_MchPay"`
 
 	// wxpay 微信服务商模式
 	WXPayBarPay     func(req *BarPay,tag string) (trade *Trade, e Error)           `name:"wxpay_BarPay"`
