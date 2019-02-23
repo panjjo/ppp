@@ -83,11 +83,11 @@ func NewAliPay(cfgs Config) *AliPay {
 // 默认开启真实姓名强验证
 func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 	params := map[string]interface{}{
-		"out_biz_no": req.OutTradeID,
-		"payee_account":req.Account,
-		"amount":fmt.Sprintf("%.2f",float64(req.Amount)/100.0),
-		"payee_real_name":req.UserName,
-		"remark":req.Desc,
+		"out_biz_no":      req.OutTradeID,
+		"payee_account":   req.Account,
+		"amount":          fmt.Sprintf("%.2f", float64(req.Amount)/100.0),
+		"payee_real_name": req.UserName,
+		"remark":          req.Desc,
 	}
 	switch req.AccountType {
 	case ACCOUNTTYPEID:
@@ -129,7 +129,6 @@ func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 	return
 }
 
-
 // PayParams 获取支付参数
 // 用于前段请求，不想暴露证书的私密信息的可用此方法组装请求参数，前端只负责请求
 // 支持的有 网站支付，手机app支付，h5支付等
@@ -164,11 +163,14 @@ func (A *AliPay) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e E
 		"store_id":        req.ShopID,
 		"passback_params": req.Ex,
 	}
+	if req.NotifyURL == "" {
+		req.NotifyURL = ctx.Notify()
+	}
 	sysParams := A.sysParams(ctx)
 	sysParams["method"] = method
 	sysParams["biz_content"] = string(jsonEncode(params))
 	sysParams["return_url"] = req.ReturnURL
-	sysParams["notify_url"] = ctx.Notify()
+	sysParams["notify_url"] = req.NotifyURL
 	sysParams["sign"] = base64Encode(A.Signer(ctx, sysParams))
 	data = &PayParams{
 		Params:     httpBuildQuery(sysParams),

@@ -68,6 +68,7 @@ type TradeParams struct {
 	OpenID     string     // 与sub_openid二选一 公众号支付必传，openid为在服务商公众号的id
 	SubOpenID  string     // 与openid 二选一 公众号支付必传，sub_openid为在子商户公众号的id
 	Type       TradeType  // 订单类型，网页支付公众号支付：JSAPI,扫码支付：NATIVE，app支付：APP
+	NotifyURL  string     // 异步通知地址， 不传默认使用配置文件中的设置
 }
 
 // TradeScene 订单支付场景

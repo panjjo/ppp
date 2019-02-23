@@ -749,6 +749,9 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 	default:
 		tradeType = "NATIVE"
 	}
+	if req.NotifyURL == "" {
+		req.NotifyURL = ctx.Notify()
+	}
 	params := wxPayParamsRequest{
 		AppID:      ctx.appid(),
 		MchID:      ctx.serviceid(),
@@ -757,7 +760,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 		OutTradeID: req.OutTradeID,
 		Amount:     fmt.Sprintf("%d", req.Amount),
 		IPAddr:     req.IPAddr,
-		NotifyURL:  ctx.Notify(),
+		NotifyURL:  req.NotifyURL,
 		TradeType:  tradeType,
 		OpenID:     req.OpenID,
 		SubOpenID:  req.SubOpenID,
