@@ -80,7 +80,7 @@ func NewAliPay(cfgs Config) *AliPay {
 
 // MchPay 企业付款 到 个人支付宝账号
 // 单商户模式调用
-// 默认开启真实姓名强验证
+// UserName 不为空则强制检测真实姓名和支付宝账号是否一致
 func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 	params := map[string]interface{}{
 		"out_biz_no":      req.OutTradeID,

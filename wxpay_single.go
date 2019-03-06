@@ -150,7 +150,7 @@ type wxMchPayResult struct {
 
 // MchPay 企业付款 到 微信零钱包
 // 单商户模式调用
-// 默认开启真实姓名强验证
+// 默认不开启真实姓名强验证，传入姓名则开启
 func (WS *WXPaySingle) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 	params := wxMchPayRequest{
 		AppID:          ctx.appid(),
@@ -158,11 +158,15 @@ func (WS *WXPaySingle) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 		NonceStr:       randomString(32),
 		OutTradeID:     req.OutTradeID,
 		OpenID:         req.Account,
-		CheckName:      "FORCE_CHECK",
 		UserName:       req.UserName,
 		Amount:         req.Amount,
 		Desc:           req.Desc,
 		SpbillCreateIP: req.IPAddr,
+	}
+	if params.UserName != "" {
+		params.CheckName = "FORCE_CHECK"
+	} else {
+		params.CheckName = "NO_CHECK"
 	}
 	params.Sign = WS.Signer(ctx, structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
