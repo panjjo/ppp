@@ -88,6 +88,7 @@ func NewWXPaySingle(cfgs Config) *WXPaySingle {
 			wxpaySingle.cfgs[appid] = c
 		}
 	}
+	Log.DEBUG.Printf("wxpay single cfgs:%+v,def:%+v", wxpaySingle.cfgs, wxpaySingle.def)
 	return wxpaySingle
 }
 

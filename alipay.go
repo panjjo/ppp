@@ -75,6 +75,7 @@ func NewAliPay(cfgs Config) *AliPay {
 			alipay.cfgs[cfg.AppID] = c
 		}
 	}
+	Log.DEBUG.Printf("alipay cfgs:%+v,def:%+v", alipay.cfgs, alipay.def)
 	return alipay
 }
 
@@ -272,6 +273,7 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 					// 支付成功
 					paySucc = true
 					needCancel = false
+					return trade,nil
 				}
 				time.Sleep(3 * time.Second)
 			}
