@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -190,6 +191,11 @@ func mapSortAndJoin(m map[string]string, step1, step2 string, empty bool) string
 func parseFloat(s string) float64 {
 	f, _ := strconv.ParseFloat(s, 64)
 	return f
+}
+
+// float64 四舍五入取整
+func round(x float64) int64 {
+	return int64(math.Round(x))
 }
 
 /**

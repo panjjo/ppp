@@ -523,7 +523,7 @@ func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e
 		tmpresult := info.(map[string]interface{})
 		// 数据返回后以第三方返回数据为准
 		trade = &Trade{
-			Amount:     int64(parseFloat(tmpresult["total_amount"].(string)) * 100),
+			Amount:     round(parseFloat(tmpresult["total_amount"].(string)) * 100),
 			Status:     aliTradeStatusMap[tmpresult["trade_status"].(string)],
 			ID:         trade.ID,
 			UpTime:     getNowSec(),
