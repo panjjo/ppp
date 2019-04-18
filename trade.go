@@ -65,9 +65,10 @@ type TradeParams struct {
 	MchID      string
 	IPAddr     string
 	Scene      TradeScene // 场景
-	OpenID     string     // 与sub_openid二选一 公众号支付必传，openid为在服务商公众号的id
-	SubOpenID  string     // 与openid 二选一 公众号支付必传，sub_openid为在子商户公众号的id
-	Type       TradeType  // 订单类型，网页支付公众号支付：JSAPI,扫码支付：NATIVE，app支付：APP
+	OpenID     string     // 与sub_openid 二选一  支付用户在公众号或小程序的用户openid
+	SubOpenID  string     // 与openid 二选一  支付用户在公众号或小程序的openid
+	SubAppID   string     // 子商户appid,服务商模式使用，公众号支付为子商户公众号appid，小程序为子商户小程序appid,不传模式使用AuthSigned时传入的subappid
+	Type       TradeType  // 订单类型，公众号支付：JSAPI,顾客扫码支付：NATIVE，app支付：APP，小程序支付：MINIP,
 	NotifyURL  string     // 异步通知地址， 不传默认使用配置文件中的设置
 }
 

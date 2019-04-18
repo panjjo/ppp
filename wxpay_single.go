@@ -685,10 +685,10 @@ type wxPayParamsRequest struct {
 	XMLName xml.Name `xml:"xml"`
 
 	// required
-	AppID      string `xml:"appid"`      // 公众账号ID
-	MchID      string `xml:"mch_id"`     // 商户号
-	SubMchID   string `xml:"sub_mch_id"` // 子商户ID
-	SubAppID   string `xml:"sub_appid"`
+	AppID      string `xml:"appid"`        // 公众账号ID
+	MchID      string `xml:"mch_id"`       // 商户号
+	SubMchID   string `xml:"sub_mch_id"`   // 子商户ID
+	SubAppID   string `xml:"sub_appid"`    // 服务商模式子商户appid
 	NonceStr   string `xml:"nonce_str"`    // 随机字符串
 	Body       string `xml:"body"`         // 商品描述
 	OutTradeID string `xml:"out_trade_no"` // 商户订单号
@@ -743,10 +743,9 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 		tradeType = "APP"
 	case JSPAY, MINIPAY:
 		tradeType = "JSAPI"
-		// 公众号支付 openid subopenid 二者必传其一
-		if req.OpenID == "" && req.SubOpenID == "" {
+		if req.SubOpenID == "" && req.OpenID == "" {
 			e.Code = SysErrParams
-			e.Msg = " openid subopenid 二者必传其一"
+			e.Msg = "openid sub_openid 必传一个"
 			return
 		}
 	case CBARPAY:
@@ -773,8 +772,13 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 			"h5_info": map[string]interface{}{"type": "Wap", "wap_url": req.Scene.URL, "wap_name": req.Scene.Name},
 		})),
 	}
+	if req.SubAppID != "" {
+		params.SubAppID = req.SubAppID
+	} else {
+		params.SubAppID = ctx.subappid()
+		req.SubAppID = ctx.subappid()
+	}
 	params.SubMchID = ctx.mchid()
-	params.SubAppID = ctx.subappid()
 	params.Sign = WS.Signer(ctx, structToMap(params, "xml"))
 	postBody, err := xml.Marshal(params)
 	rq := requestSimple{
@@ -823,11 +827,18 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 		case MINIPAY, JSPAY:
 			// 小程序和公众号支付返回接口组装好的请求参数
 			params := map[string]string{
-				"appId":     ctx.appid(),
+				// "appId":     ctx.appid(),
 				"timeStamp": fmt.Sprintf("%d", getNowSec()),
 				"nonceStr":  randomString(32),
 				"package":   fmt.Sprintf("prepay_id=%s", tmpresult.PrePayID),
 				"signType":  "MD5",
+			}
+			if ctx.Type == WXPAYSINGLE {
+				// 单商户模式
+				params["appId"] = ctx.appid()
+			} else {
+				// 服务商模式使用子商户appid
+				params["appId"] = req.SubAppID
 			}
 			params["paySign"] = WS.Signer(ctx, params)
 			data.SourceData = string(jsonEncode(params))

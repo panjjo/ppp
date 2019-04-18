@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,36 +17,94 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
-
-	"gopkg.in/mgo.v2/bson"
 )
 
-var _systemID int64
+/**
+timeid
+*/
+type U struct {
+	prefix string
+	c      chan int
+	d      chan struct{}
+}
+
+func NewU(t int64, n int) *U {
+	u := &U{
+		prefix: time.Unix(t, 0).Format("060102150405"),
+		c:      make(chan int, n),
+		d:      make(chan struct{}),
+	}
+	u.start()
+	return u
+}
+func (u *U) start() {
+	go func() {
+		i := 0
+		for {
+			select {
+			case u.c <- i:
+				i++
+			case <-u.d:
+				return
+			}
+		}
+	}()
+}
+func (u *U) stop() {
+	u.d <- struct{}{}
+	close(u.c)
+}
+
+func (u *U) Next() string {
+	return u.prefix + fmt.Sprintf("%d", <-u.c)
+}
+
+type TimeID struct {
+	o *U
+	c *U
+	n *U
+
+	l int
+}
+
+func NewTimeID(l int) *TimeID {
+	return &TimeID{l: l}
+}
+func (u *TimeID) Start() error {
+	go func() {
+		t := time.NewTicker(time.Second)
+		u.n = NewU(time.Now().Unix(), u.l)
+		for {
+			u.o = u.c
+			u.c = u.n
+			u.n = NewU(time.Now().Unix()+1, u.l)
+			if u.o != nil {
+				u.o.stop()
+			}
+			<-t.C
+		}
+	}()
+	for u.c == nil {
+
+	}
+	return nil
+}
+func (u *TimeID) Next() string {
+	return u.c.Next()
+}
+
+
+var _systemID *TimeID
 
 func init() {
-	_systemID = 0
-	gob.Register(bson.M{})
-
-	go resetSystemID()
-
+	_systemID = NewTimeID(10)
+	_systemID.Start()
 }
 
-func resetSystemID() {
-	ticker := time.NewTicker(time.Second)
-	for {
-		<-ticker.C
-		atomic.StoreInt64(&_systemID, 0)
-	}
-}
-func systemid() int64 {
-	atomic.AddInt64(&_systemID, 1)
-	return _systemID
-}
 
 func randomTimeString() string {
-	return (sec2Str("20060102150405", getNowSec()) + fmt.Sprintf("%05d", systemid()))[2:]
+	return _systemID.Next()
 }
 
 /**
