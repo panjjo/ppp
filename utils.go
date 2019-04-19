@@ -86,7 +86,7 @@ func (u *TimeID) Start() error {
 		}
 	}()
 	for u.c == nil {
-
+		time.Sleep(1 * time.Millisecond)
 	}
 	return nil
 }
@@ -94,14 +94,12 @@ func (u *TimeID) Next() string {
 	return u.c.Next()
 }
 
-
 var _systemID *TimeID
 
 func init() {
 	_systemID = NewTimeID(10)
 	_systemID.Start()
 }
-
 
 func randomTimeString() string {
 	return _systemID.Next()

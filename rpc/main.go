@@ -28,11 +28,11 @@ func main() {
 		alipay = ppp.NewAliPay(config.AliPay)
 		ppp.Log.DEBUG.Println("alipay init succ")
 	}
-	if config.WXPay.Use{
+	if config.WXPay.Use {
 		wxpay = ppp.NewWXPay(config.WXPay)
 		ppp.Log.DEBUG.Println("wxpay init succ")
 	}
-	if config.WXSingle.Use{
+	if config.WXSingle.Use {
 		wxpaySingle = ppp.NewWXPaySingle(config.WXSingle)
 		ppp.Log.DEBUG.Println("wxpaySingle init succ")
 	}
