@@ -189,7 +189,7 @@ func (WS *WXPaySingle) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 	}
 	info, err := WS.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -298,7 +298,7 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 	}
 	info, err := WS.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -443,7 +443,7 @@ func (WS *WXPaySingle) Refund(ctx *Context, req *Refund) (refund *Refund, e Erro
 	}
 	info, err := WS.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -523,9 +523,9 @@ func (WS *WXPaySingle) Cancel(ctx *Context, req *Trade) (e Error) {
 			return result, err
 		}
 	}
-	info, err := WS.Request(rq)
+	_, err = WS.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -633,7 +633,7 @@ func (WS *WXPaySingle) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Tr
 	}
 	info, err := WS.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -799,7 +799,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 	info, err := WS.Request(rq)
 	Log.DEBUG.Printf("%+v,%+v", info, err)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -920,7 +920,7 @@ func (WS *WXPaySingle) request(url string, data []byte, tls bool, ctx *Context) 
 		return nil, nextStop, err
 	}
 	if result.ReturnCode != "SUCCESS" {
-		return nil, nextStop, newError("NOAUTH")
+		return nil, nextStop, newError(result.ReturnMsg)
 	}
 	next, err := WS.errorCheck(result)
 	return body, next, err
