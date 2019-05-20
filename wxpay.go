@@ -167,7 +167,7 @@ func (W *WXPay) AuthSigned(ctx *Context, req *Auth) (auth *Auth, e Error) {
 	ctx.auth = auth
 	// 检测权限是否真实开通
 	// 临时指定auth状态为AuthStatusSucc 为了后面通过权限验证
-	if _, err := W.TradeInfo(ctx, &Trade{MchID: auth.MchID, TradeID: "tradeforAuthSignedCheck"}, true); err.Code == AuthErr {
+	if _, err := W.TradeInfo(ctx, &Trade{MchID: auth.MchID, OutTradeID: "tradeforAuthSignedCheck"}, true); err.Code != TradeErrNotFound {
 		// 查询订单返回权限错误，说明授权存在问题
 		e.Code = AuthErr
 		e.Msg = err.Msg

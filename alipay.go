@@ -116,7 +116,7 @@ func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 	}
 	info, err := A.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := aliErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -273,18 +273,19 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 					// 支付成功
 					paySucc = true
 					needCancel = false
-					return trade,nil
+					return trade, nil
 				}
 				time.Sleep(3 * time.Second)
 			}
 		default:
 			needCancel = true
+			e.Msg = err.Error()
 		}
 		return trade, newError(e.Msg)
 	}
 	info, err := A.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := aliErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -380,7 +381,7 @@ func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
 	}
 	info, err := A.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := aliErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -445,9 +446,9 @@ func (A *AliPay) Cancel(ctx *Context, req *Trade) (e Error) {
 			return result, err
 		}
 	}
-	info, err := A.Request(rq)
+	_, err := A.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := aliErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -512,7 +513,7 @@ func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e
 	}
 	info, err := A.Request(rq)
 	if err != nil {
-		e.Msg = string(jsonEncode(info))
+		e.Msg = err.Error()
 		if v, ok := aliErrMap[err.Error()]; ok {
 			e.Code = v
 		} else {
@@ -575,7 +576,7 @@ func (A *AliPay) AuthSigned(ctx *Context, req *Auth) (auth *Auth, e Error) {
 		if auth.Status == AuthStatusSucc {
 			// 临时指定auth状态为AuthStatusSucc 为了后面通过权限验证
 			ctx.auth.Status = AuthStatusSucc
-			if _, err := A.TradeInfo(ctx, &Trade{MchID: ctx.mchid(), TradeID: "tradeforAuthSignedCheck"}, true); err.Code == AuthErr {
+			if _, err := A.TradeInfo(ctx, &Trade{MchID: ctx.mchid(), OutTradeID: "tradeforAuthSignedCheck"}, true); err.Code == AuthErr {
 				// 查询订单返回权限错误，说明授权存在问题
 				e.Code = AuthErr
 				e.Msg = err.Msg
