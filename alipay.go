@@ -268,6 +268,7 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 			// 等待用户输入密码
 			// 每3秒获取一次订单信息，直至支付超时或支付成功
 			for getNowSec()-ctx.gt() < maxTimeout {
+				time.Sleep(3 * time.Second)
 				trade, e = A.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
 				if e.Code == 0 && trade.Status == TradeStatusSucc {
 					// 支付成功
@@ -275,7 +276,6 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 					needCancel = false
 					return trade, nil
 				}
-				time.Sleep(3 * time.Second)
 			}
 		default:
 			needCancel = true
@@ -328,6 +328,7 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 	}
 	if needCancel {
 		// 取消订单
+		ctx.t = getNowSec()
 		A.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
 	}
 	return
@@ -350,7 +351,7 @@ func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
 		e.Code = TradeErrNotFound
 		return
 	}
-	if trade.Status != TradeStatusSucc {
+	if trade.Status != TradeStatusSucc && trade.Status != TradeStatusRefund {
 		e.Code = TradeErrStatus
 		return
 	}
@@ -407,6 +408,9 @@ func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
 			Memo:        req.Memo,
 		}
 		saveRefund(refund)
+		// 退款成功更新订单状态
+		trade.Status = TradeStatusRefund
+		updateTrade(map[string]string{"id": trade.ID}, trade)
 	}
 	return
 }
@@ -416,6 +420,7 @@ func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
 // 如果订单已支付会取消失败
 // 支持服务商模式，单商户模式
 func (A *AliPay) Cancel(ctx *Context, req *Trade) (e Error) {
+	trade, e := A.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
 	// 获取授权
 	auth := ctx.getAuth(req.UserID, req.MchID)
 	if auth.Status != AuthStatusSucc {
@@ -456,6 +461,10 @@ func (A *AliPay) Cancel(ctx *Context, req *Trade) (e Error) {
 		}
 	} else {
 		// 撤销成功
+		if trade.ID != "" {
+			trade.Status = TradeStatusClose
+			updateTrade(map[string]string{"id": trade.ID}, trade)
+		}
 	}
 	return e
 }

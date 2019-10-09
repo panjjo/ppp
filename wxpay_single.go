@@ -277,6 +277,7 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 			// 等待用户输入密码
 			// 每3秒获取一次订单信息，直至支付超时或支付成功
 			for getNowSec()-ctx.gt() < maxTimeout {
+				time.Sleep(3 * time.Second)
 				trade, e = WS.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
 				if e.Code == 0 && trade.Status == TradeStatusSucc {
 					// 支付成功
@@ -289,7 +290,6 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 					needCancel = true
 					return trade, newError("用户取消支付")
 				}
-				time.Sleep(3 * time.Second)
 			}
 		default:
 			needCancel = true
@@ -341,10 +341,11 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 			// 更新订单
 			updateTrade(map[string]interface{}{"id": trade.ID}, result)
 		}
-
 	}
 	if needCancel {
 		// 取消订单
+		// 新调接口重置时间
+		ctx.t = getNowSec()
 		WS.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
 	}
 	return
@@ -470,6 +471,9 @@ func (WS *WXPaySingle) Refund(ctx *Context, req *Refund) (refund *Refund, e Erro
 			From:        WXPAY,
 		}
 		saveRefund(refund)
+		// 退款成功更新订单状态
+		trade.Status = TradeStatusRefund
+		updateTrade(map[string]string{"id": trade.ID}, trade)
 	}
 	return
 }
@@ -494,6 +498,7 @@ type wxCancelRequest struct {
 // 单商户模式调用
 // 服务商模式请调用 WXPay.Cancel
 func (WS *WXPaySingle) Cancel(ctx *Context, req *Trade) (e Error) {
+	trade, e := WS.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
 	params := wxCancelRequest{
 		AppID:      ctx.appid(),
 		MchID:      ctx.serviceid(),
@@ -533,6 +538,10 @@ func (WS *WXPaySingle) Cancel(ctx *Context, req *Trade) (e Error) {
 		}
 	} else {
 		// 撤销成功
+		if trade.ID != "" {
+			trade.Status = TradeStatusClose
+			updateTrade(map[string]string{"id": trade.ID}, trade)
+		}
 	}
 	return e
 }
