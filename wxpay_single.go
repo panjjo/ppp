@@ -293,8 +293,10 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 			}
 		default:
 			needCancel = true
+			e.Code = PayErr
+			e.Msg = err.Error()
 		}
-		return trade, newError(e.Msg)
+		return trade, newErrorByE(e)
 	}
 	info, err := WS.Request(rq)
 	if err != nil {
@@ -664,7 +666,9 @@ func (WS *WXPaySingle) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Tr
 			Type:       trade.Type,
 			From:       WXPAY,
 			AppID:      trade.AppID,
-			PayTime:    str2Sec("20060102150405", tmpresult.TimeEnd),
+		}
+		if trade.Status == TradeStatusSucc {
+			trade.PayTime = str2Sec("20060102150405", tmpresult.TimeEnd)
 		}
 		trade.UserID = ctx.userid()
 		trade.MchID = ctx.serviceid()
@@ -940,7 +944,7 @@ func (WS *WXPaySingle) errorCheck(result wxResult) (Status, error) {
 		// 成功
 		return nextStop, nil
 	}
-	var code Status
+	var code Status = nextStop
 	switch result.ErrCode {
 	case "SYSTEMERROR", "BANKERROR":
 		// 需确认

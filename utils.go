@@ -366,3 +366,10 @@ func timeoutDialer(cTimeout time.Duration,
 func newError(msg string) error {
 	return errors.New(msg)
 }
+
+func newErrorByE(e Error) error {
+	if e.Code == Succ {
+		return nil
+	}
+	return newError(e.Msg)
+}

@@ -279,9 +279,10 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 			}
 		default:
 			needCancel = true
+			e.Code = PayErr
 			e.Msg = err.Error()
 		}
-		return trade, newError(e.Msg)
+		return trade, newErrorByE(e)
 	}
 	info, err := A.Request(rq)
 	if err != nil {
