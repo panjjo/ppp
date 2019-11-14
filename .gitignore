@@ -1,5 +1,5 @@
 *.key
-cert_*
+cert*
 config.*.yml
 config.yml
 hprose
