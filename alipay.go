@@ -262,6 +262,8 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 			} else {
 				// 其他错误，取消订单
 				needCancel = true
+				e.Code = PayErr
+				e.Msg = e.Msg + "订单支付失败"
 			}
 		case nextWaitRetry:
 			needCancel = true
