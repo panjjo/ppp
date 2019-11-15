@@ -1,5 +1,14 @@
 # ppp
-微信支付，支付宝支付服务商后端golang版本
+## 说明
+### 类型
+工具类
+### 所属项目
+任何项目
+### 主要功能
+集成支付宝微信支付
+支持扫码支付（主扫/被扫），app支付，小程序支付，公众号支付，网页支付，退款，企业付款
+集成用户支付宝微信授权管理
+支持服务商，单商户两种模式
 支持多个服务商，多个app/服务商同时收款，具体看配置文件
 
 ## 启动
@@ -14,7 +23,7 @@ cert
 ```
 
  - cp config.tmp.yml config.yml
- - go run rpc/hprose.go --path=configfilepath
+ - go run rpc/*.go --path=configfilepath
 
 ### hprose
 使用hprose的rpc模式启动
