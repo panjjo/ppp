@@ -277,6 +277,11 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 					paySucc = true
 					needCancel = false
 					return trade, nil
+				} else {
+					paySucc = false
+					needCancel = true
+					e.Code = PayErr
+					e.Msg = e.Msg + "订单未支付"
 				}
 			}
 		default:

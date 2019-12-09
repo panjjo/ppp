@@ -291,6 +291,11 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 					paySucc = false
 					needCancel = true
 					return trade, newError("用户取消支付")
+				} else {
+					paySucc = false
+					needCancel = true
+					e.Code = PayErr
+					e.Msg = e.Msg + "订单未支付"
 				}
 			}
 		default:
