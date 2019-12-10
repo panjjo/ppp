@@ -1,7 +1,7 @@
 REGISTRY:=harbor.yunss.com:5000
 GROUP:=micro
 PROJECT:=ppp
-TAG:=k8s
+TAG:=1.1.0
 NAMESPACE:=micro
 
 all: build docker push
