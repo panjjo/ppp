@@ -7,3 +7,4 @@ main
 .vscode/*
 *.DS_Store
 .idea/
+srv
