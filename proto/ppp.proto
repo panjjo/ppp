@@ -1,0 +1,266 @@
+syntax = "proto3";
+
+package micro.proto3.ppp;
+
+service PPP {
+    // alipay 支付宝
+    rpc AliPayParams (params) returns (paramsResult) {
+    }
+    rpc AliBarPay (barpay) returns (tradeResult) {
+    }
+    rpc AliRefund (refund) returns (refundResult) {
+    }
+    rpc AliCancel (trade) returns (tradeResult) {
+    }
+    rpc AliTradeInfo (trade) returns (tradeResult) {
+    }
+    rpc AliAuthSigned (account) returns (accountResult) {
+    }
+    rpc AliAuth (authReq) returns (accountResult) {
+    }
+    rpc AliBindUser (user) returns (userResult) {
+    }
+    rpc AliMchPay (transfer) returns (transferResult) {
+    }
+    //    // wxpay 微信服务商模式
+    rpc WXBarPay (barpay) returns (tradeResult) {
+    }
+    rpc WXRefund (refund) returns (refundResult) {
+    }
+    rpc WXTradeInfo (trade) returns (tradeResult) {
+    }
+    rpc WXCancel (trade) returns (tradeResult) {
+    }
+    rpc WXPayParam (params) returns (paramsResult) {
+    }
+    rpc WXBindUser (user) returns (userResult) {
+    }
+    rpc WXAuthSigned (account) returns (accountResult) {
+    }
+    //
+    //    // wxpay_single 微信单商户模式
+    rpc WXSingleBarPay (barpay) returns (tradeResult) {
+    }
+    rpc WXSingleRefund (refund) returns (refundResult) {
+    }
+    rpc WXSingleTradeInfo (trade) returns (tradeResult) {
+    }
+    rpc WXSingleCancel (trade) returns (tradeResult) {
+    }
+    rpc WXSinglePayParams (params) returns (paramsResult) {
+    }
+    rpc WXSingleMchPay (transfer) returns (transferResult) {
+    }
+}
+
+message result {
+    int32 code = 1;
+    string msg = 2;
+}
+
+message scene {
+    // 详情看wxpay的统一下单中的scene
+    string URL = 1; // 请求地址
+    string Name = 2; // 请求名称
+}
+
+enum accounttype {
+    id = 0;
+    login = 1;
+}
+
+enum tradetype {
+    BAR = 0;
+    WAP = 1;
+    APP = 2;
+    WEB = 3;
+    JSAPI = 4;
+    MINIP = 5;
+    CBAR = 6;
+
+}
+
+enum tradestatus {
+    waitepay = 0;
+    succ = 1;
+    paying = 2;
+    cancel = 3;
+    closed = 4;
+    refunded = 5;
+}
+
+
+enum accountstatus {
+    unauth = 0;
+    ok = 1;
+    forbid = 2;
+}
+
+
+message transfer {
+    // 商户交易号
+    string OutTradeID = 1;
+    // 真实姓名
+    string UserName = 2;
+    // 付款金额
+    int64 Amount = 3;
+    // 付款备注
+    string Desc = 4;
+    // ip地址
+    string IPADDR = 5;
+    // 收款方账号 支付宝的为支付宝登陆账号或者支付宝唯一用户id，微信的为appid下的openid
+    string Account = 6;
+    // 来源 alipay or wxpay
+    string From = 7;
+    // 收款方账号类型  ID: 唯一id，login: 登录名
+    accounttype AccountType = 8;
+    string AppID = 9;
+    string TradeID = 10;
+}
+
+message transferResult {
+    transfer data = 1;
+    result status = 2;
+}
+
+message user {
+    string UserID = 1;
+    string ID = 2;
+    string MchID = 3;
+    string From = 4;
+    string AppID = 5;
+    accountstatus Status = 6;
+}
+
+message userResult {
+    user data = 1;
+    result status = 2;
+}
+
+
+message params {
+    string ReturnURL = 1; // 回调地址,非异步通知地址
+    string OutTradeID = 2; // 商户交易id 唯一
+    string TradeName = 3; // 名称
+    int64 Amount = 5; // 交易总额,单位分
+    // 商品表述
+    string ItemDes = 6;
+    // 店铺id
+    string ShopID = 7;
+    // 共用回传参数
+    string EX = 8;
+    // 支付宝使用服务商模式中的自身收款，微信支付有些需要传userid
+    string UserID = 9;
+    string MchID = 10;
+    string IPADDR = 11;
+    //    tradescene // 场景
+    scene Scene = 12;
+    // 与sub_openid 二选一  支付用户在公众号或小程序的用户openid
+    string OpenID = 13;
+    // 与openid 二选一  支付用户在公众号或小程序的openid
+    string SubOpenID = 14;
+    // 子商户appid,服务商模式使用，公众号支付为子商户公众号appid，小程序为子商户小程序appid,不传模式使用authsigned时传入的subappid
+    string SubAppID = 15;
+    tradetype Type = 16;
+    // 异步通知地址， 不传默认使用配置文件中的设置
+    string NotifyURL = 17;
+    string AppID = 18;
+}
+message paramsData {
+    // sourcedata 支付参数的map数据jsonencode
+    string SourceData = 1;
+    // params urlencode的数据
+    string Params = 2;
+}
+message paramsResult {
+    paramsData data = 1;
+    result status = 2;
+}
+
+
+message barpay {
+    string OutTradeID = 1; // 商户交易id 唯一
+    string TradeName = 2; // 名称
+    int64 Amount = 3; // 交易总额,单位分
+    string ItemDes = 4; // 商品表述
+    string AuthCode = 5; // 授权码
+    string UserID = 6; // 收款方对应的userid
+    string MchID = 7; // 商户号：非服务商模式收款不会存在user信息，可直接传mchid
+    string ShopID = 8; // 店铺id
+    string IPADDR = 9;
+    string AppID = 10;
+}
+
+message trade {
+    string OutTradeID = 1;
+    string TradeID = 2;
+    int64 Amount = 3;
+    string ID = 4;
+    tradestatus Status = 5;
+    tradetype Type = 6;
+    string MchID = 7;
+    string UserID = 8;
+    int64 UpTime = 9;
+    int64 PayTime = 10;
+    int64 Create = 11;
+    // appid  收款方id
+    string AppID = 12;
+    // form 单据来源 alipay wxpay
+    string From = 13;
+}
+
+message tradeResult {
+    trade data = 1;
+    result status = 2;
+}
+
+
+message refund {
+    string RefundID = 1;
+    string ID = 2;
+    string OutRefundID = 3;
+    // 使用Trade.OutTradeID
+    string SourceID = 4;
+    int64 Amount = 5;
+    tradestatus status = 6;
+    string MchID = 7;
+    string UserID = 8;
+    int64 UpTime = 9;
+    int64 RefundTime = 10;
+    int64 Create = 11;
+    string AppID = 12;
+    // 单据来源 alipay wxpay
+    string From = 13;
+    string Memo = 14;
+}
+message refundResult {
+    refund data = 1;
+    result status = 2;
+}
+
+
+message account {
+    string ID = 1;
+    string Token = 2;
+    accountstatus Status = 3;
+    // MchID 商户号
+    string MchID = 4;
+    // Form 来源 alipay wxpay
+    string From = 5;
+    string Account = 6;
+    // AppID 授权对应的appid
+    string AppID = 7;
+    // SubAppID 微信子商户appid
+    string SubAppID = 8;
+}
+
+message accountResult {
+    account data = 1;
+    result status = 2;
+}
+
+message authReq {
+    string Code = 1;
+    string AppID = 2;
+}
+
