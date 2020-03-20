@@ -8,3 +8,7 @@ main
 *.DS_Store
 .idea/
 srv
+Dockerfile
+Makefile
+deploy.yaml
+ppp
