@@ -6,9 +6,8 @@ hprose
 main
 .vscode/*
 *.DS_Store
-.idea/
-srv
+.idea/*
+ppp
 Dockerfile
 Makefile
 deploy.yaml
-ppp
