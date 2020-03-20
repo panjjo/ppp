@@ -1,21 +1,28 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"github.com/hprose/hprose-golang/rpc"
-	"github.com/panjjo/ppp"
+	ppp "github.com/panjjo/ppp/proto"
+	"google.golang.org/grpc"
+	"log"
 )
 
 func main() {
-	client := rpc.NewTCPClient("tcp://127.0.0.1:1233")
-	service := &ppp.Services{}
-	client.UseService(&service)
-	fmt.Println(service.WXPayTradeInfo(&ppp.Trade{MchID:"1490825832",OutTradeID:"201910081734490"},true,"wxfa9c9911c1beae14"))
-	// fmt.Println(service.WXPayBarPay(&ppp.BarPay{
-	// 	OutTradeID:"201901311100450",
-	// 	TradeName:"abc",
-	// 	Amount:1,
-	// 	ItemDes:"abc",
+	client,err:=grpc.Dial("127.0.0.1:1233",grpc.WithInsecure())
+	if err!=nil{
+		log.Fatal(err)
+	}
+	pppClient:=ppp.NewPPPClient(client)
+	trade,err:=pppClient.AliBarPay(context.Background(),&ppp.Barpay{
+		UserID:"a56a767946",
+		AuthCode:"1354564",
+		ShopID:"111",
+		Amount: 1,
+		TradeName:"test",
+		OutTradeID:"123adskfjoeifja",
+	})
+	fmt.Println(trade,err)
 	// 	UserID:"a56a767946",
 	// 	AuthCode:"1354564",
 	// 	ShopID:"92e8dba4466b2a1daaa5b4c8134aea24",

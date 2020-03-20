@@ -3,13 +3,14 @@ package ppp
 import (
 	"crypto/rsa"
 	"crypto/tls"
-	"github.com/hprose/hprose-golang/rpc"
+	"github.com/sirupsen/logrus"
+	proto "github.com/panjjo/ppp/proto"
 	"time"
 )
 
 type Context struct {
 	t    int64 // 请求开始时间
-	auth *Auth // 权限信息
+	auth *proto.Account// 权限信息
 	uid  string
 	// Tag 请求收款app的tag
 	Tag string
@@ -20,18 +21,16 @@ type Context struct {
 	userData map[string]interface{}
 }
 
-var _ rpc.Context = &Context{}
-
 func NewContextWithCfg(ty, tg string) *Context {
 	ctx := &Context{Type: ty, Tag: tg}
 	ctx.SetCfg(ty, tg)
 	return ctx
 }
 func (c *Context) SetCfg(ty, tg string) {
-	Log.DEBUG.Println("req set cfg ,ty:", ty, "tg:", tg)
+	logrus.Debugln("req set cfg ,ty:", ty, "tg:", tg)
 	c.cfg = &config{}
 	switch ty {
-	case ALIPAY:
+	case proto.ALIPAY:
 		if tg == "" {
 			c.cfg = &alipay.def
 		} else {
@@ -39,7 +38,7 @@ func (c *Context) SetCfg(ty, tg string) {
 				c.cfg = &cfg
 			}
 		}
-	case WXPAY:
+	case proto.WXPAY:
 		if tg == "" {
 			c.cfg = &wxpay.ws.def
 		} else {
@@ -47,7 +46,7 @@ func (c *Context) SetCfg(ty, tg string) {
 				c.cfg = &cfg
 			}
 		}
-	case WXPAYSINGLE:
+	case proto.WXPAYSINGLE:
 		if tg == "" {
 			c.cfg = &wxpaySingle.def
 		} else {
@@ -56,7 +55,7 @@ func (c *Context) SetCfg(ty, tg string) {
 			}
 		}
 	}
-	Log.DEBUG.Printf("end cfg:%+v", c.cfg)
+	logrus.Debugf("end cfg:%+v", c.cfg)
 }
 func (c *Context) tlsConfig() *tls.Config {
 	return c.cfg.tlsConfig
@@ -115,196 +114,29 @@ func (c *Context) mchid() string {
 	}
 	return ""
 }
-func (c *Context) getAuth(userid, mchid string) *Auth {
-	Log.DEBUG.Println("get auth, userid:", userid, "mchid:", mchid)
+func (c *Context) getAuth(userid, mchid string) *proto.Account {
+	logrus.Debugln("get auth, userid:", userid, "mchid:", mchid)
 	if c.auth != nil {
 		return c.auth
 	}
 	if userid == "" {
 		switch c.Type {
-		case ALIPAY:
-			c.auth = &Auth{
+		case proto.ALIPAY:
+			c.auth = &proto.Account{
 				MchID:  c.cfg.serviceid,
-				Status: AuthStatusSucc,
+				Status: proto.Accountstatus_ok,
 			}
-		case WXPAY:
-			c.auth = &Auth{
+		case proto.WXPAY:
+			c.auth = &proto.Account{
 				MchID:  mchid,
-				Status: AuthStatusSucc,
+				Status: proto.Accountstatus_ok,
 			}
 		}
 	} else {
 		c.uid = userid
 		c.auth = token(userid, mchid, c.Type, c.appid())
 	}
-	Log.DEBUG.Printf("end auth: %+v", c.auth)
+	logrus.Debugf("end auth: %+v", c.auth)
 	return c.auth
 }
 
-// UserData return the user data
-func (context *Context) UserData() map[string]interface{} {
-	return context.userData
-}
-
-// GetInt from hprose context
-func (context *Context) GetInt(
-	key string, defaultValue ...int) int {
-	if value, ok := context.userData[key]; ok {
-		if value, ok := value.(int); ok {
-			return value
-		}
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return 0
-}
-
-// GetUInt from hprose context
-func (context *Context) GetUInt(
-	key string, defaultValue ...uint) uint {
-	if value, ok := context.userData[key]; ok {
-		if value, ok := value.(uint); ok {
-			return value
-		}
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return 0
-}
-
-// GetInt64 from hprose context
-func (context *Context) GetInt64(
-	key string, defaultValue ...int64) int64 {
-	if value, ok := context.userData[key]; ok {
-		if value, ok := value.(int64); ok {
-			return value
-		}
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return 0
-}
-
-// GetUInt64 from hprose context
-func (context *Context) GetUInt64(
-	key string, defaultValue ...uint64) uint64 {
-	if value, ok := context.userData[key]; ok {
-		if value, ok := value.(uint64); ok {
-			return value
-		}
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return 0
-}
-
-// GetFloat from hprose context
-func (context *Context) GetFloat(
-	key string, defaultValue ...float64) float64 {
-	if value, ok := context.userData[key]; ok {
-		if value, ok := value.(float64); ok {
-			return value
-		}
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return 0
-}
-
-// GetBool from hprose context
-func (context *Context) GetBool(
-	key string, defaultValue ...bool) bool {
-	if value, ok := context.userData[key]; ok {
-		if value, ok := value.(bool); ok {
-			return value
-		}
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return false
-}
-
-// GetString from hprose context
-func (context *Context) GetString(
-	key string, defaultValue ...string) string {
-	if value, ok := context.userData[key]; ok {
-		if value, ok := value.(string); ok {
-			return value
-		}
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return ""
-}
-
-// GetInterface from hprose context
-func (context *Context) GetInterface(
-	key string, defaultValue ...interface{}) interface{} {
-	if value, ok := context.userData[key]; ok {
-		return value
-	}
-	if len(defaultValue) > 0 {
-		return defaultValue[0]
-	}
-	return nil
-}
-
-// Get value from hprose context
-func (context *Context) Get(key string) interface{} {
-	if value, ok := context.userData[key]; ok {
-		return value
-	}
-	return nil
-}
-
-// SetInt to hprose context
-func (context *Context) SetInt(key string, value int) {
-	context.userData[key] = value
-}
-
-// SetUInt to hprose context
-func (context *Context) SetUInt(key string, value uint) {
-	context.userData[key] = value
-}
-
-// SetInt64 to hprose context
-func (context *Context) SetInt64(key string, value int64) {
-	context.userData[key] = value
-}
-
-// SetUInt64 to hprose context
-func (context *Context) SetUInt64(key string, value uint64) {
-	context.userData[key] = value
-}
-
-// SetFloat to hprose context
-func (context *Context) SetFloat(key string, value float64) {
-	context.userData[key] = value
-}
-
-// SetBool to hprose context
-func (context *Context) SetBool(key string, value bool) {
-	context.userData[key] = value
-}
-
-// SetString to hprose context
-func (context *Context) SetString(key string, value string) {
-	context.userData[key] = value
-}
-
-// SetInterface to hprose context
-func (context *Context) SetInterface(key string, value interface{}) {
-	context.userData[key] = value
-}
-
-// Set is an alias of SetInterface
-func (context *Context) Set(key string, value interface{}) {
-	context.userData[key] = value
-}

@@ -3,6 +3,7 @@ package ppp
 import (
 	"crypto/rsa"
 	"crypto/tls"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 
 	"github.com/panjjo/ppp/db"
@@ -70,7 +71,7 @@ const (
 
 // Error 错误类型
 type Error struct {
-	Code int
+	Code int32
 	Msg  string
 }
 
@@ -124,46 +125,15 @@ type SysConfig struct {
 func LoadConfig(name string) *Configs {
 	b, err := ioutil.ReadFile(name)
 	if err != nil {
-		Log.ERROR.Panicf("load config file error,file:%s,err:%v", name, err)
+		logrus.Fatalf("load config file error,file:%s,err:%v", name, err)
 	}
 	config := &Configs{}
 	if err = yaml.Unmarshal(b, &config); err != nil {
-		Log.ERROR.Panicf("load config file error,file:%s,err:%v", name, err)
+		logrus.Fatalf("load config file error,file:%s,err:%v", name, err)
 	}
 	return config
 }
 
-// BarPay  商户主扫支付请求数据
-type BarPay struct {
-	OutTradeID string // 商户交易ID 唯一
-	TradeName  string // 名称
-	Amount     int64  // 交易总额,单位分
-	ItemDes    string // 商品表述
-	AuthCode   string // 授权码
-	UserID     string // 收款方对应的userid
-	MchID      string // 商户号：非服务商模式收款不会存在user信息，可直接传mchid
-	ShopID     string // 店铺ID
-	IPAddr     string
-}
-
-// MchPay 企业付款请求数据
-type MchPay struct {
-	OutTradeID string // 商户交易号
-	UserName   string // 真实姓名
-	Amount     int64  // 付款金额
-	Desc       string // 付款备注
-	IPAddr     string // ip地址
-	Account    string // 收款方账号 支付宝的为支付宝登陆账号或者支付宝唯一用户id，微信的为appid下的openid
-	AccountType string // 收款方账号类型  ID: 唯一id，login: 登录名
-}
-
-// PayParams 获取支付参数
-type PayParams struct {
-	// SourceData 支付参数的map数据jsonencode
-	SourceData string
-	// Params urlencode的数据
-	Params string
-}
 
 type config struct {
 	appid     string

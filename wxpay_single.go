@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
+	proto "github.com/panjjo/ppp/proto"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -13,10 +15,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-const (
-	// WXPAYSINGLE 微信支付单商户的标识
-	WXPAYSINGLE string = "wxpay_single"
-)
 
 var wxpaySingle *WXPaySingle
 
@@ -33,7 +31,7 @@ func wxConfig(config ConfigSingle) (wx config) {
 		wx.appid = config.AppID
 	} else {
 		if len(config.AppIDS) == 0 {
-			Log.ERROR.Panicf("not found wxpay appid")
+			logrus.Fatalf("not found wxpay appid")
 		} else {
 			wx.appid = config.AppIDS[0]
 		}
@@ -41,23 +39,23 @@ func wxConfig(config ConfigSingle) (wx config) {
 	if config.Secret != "" {
 		wx.secret = config.Secret
 	} else {
-		Log.ERROR.Panicf("not found wxpay secret")
+		logrus.Fatalf("not found wxpay secret")
 	}
 	if config.ServiceID != "" {
 		wx.serviceid = config.ServiceID
 	} else {
-		Log.ERROR.Panicf("not found wxpay serviceid")
+		logrus.Fatalf("not found wxpay serviceid")
 	}
 	if config.URL != "" {
 		wx.url = config.URL
 	} else {
-		Log.ERROR.Panicf("not found wxpay apiurl")
+		logrus.Fatalf("not found wxpay apiurl")
 	}
 	wx.notify = config.Notify
 	// 加载证书
 	cert, err := LoadCertFromP12(filepath.Join(config.CertPath, "cert.p12"), wx.serviceid)
 	if err != nil {
-		Log.ERROR.Panicf("oad wxpay cert fail,file:%s,err:%v", config.CertPath, err)
+		logrus.Fatalf("oad wxpay cert fail,file:%s,err:%v", config.CertPath, err)
 	} else {
 		wx.tlsConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -88,7 +86,7 @@ func NewWXPaySingle(cfgs Config) *WXPaySingle {
 			wxpaySingle.cfgs[appid] = c
 		}
 	}
-	Log.DEBUG.Printf("wxpay single cfgs:%+v,def:%+v", wxpaySingle.cfgs, wxpaySingle.def)
+	logrus.Debugf("wxpay single cfgs:%+v,def:%+v", wxpaySingle.cfgs, wxpaySingle.def)
 	return wxpaySingle
 }
 
@@ -152,7 +150,7 @@ type wxMchPayResult struct {
 // MchPay 企业付款 到 微信零钱包
 // 单商户模式调用
 // 默认不开启真实姓名强验证，传入姓名则开启
-func (WS *WXPaySingle) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
+func (WS *WXPaySingle) MchPay(ctx *Context, req *proto.Transfer) (resp *proto.Transfer, e Error) {
 	params := wxMchPayRequest{
 		AppID:          ctx.appid(),
 		MchID:          ctx.serviceid(),
@@ -162,7 +160,7 @@ func (WS *WXPaySingle) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 		UserName:       req.UserName,
 		Amount:         req.Amount,
 		Desc:           req.Desc,
-		SpbillCreateIP: req.IPAddr,
+		SpbillCreateIP: req.IPADDR,
 	}
 	if params.UserName != "" {
 		params.CheckName = "FORCE_CHECK"
@@ -199,7 +197,8 @@ func (WS *WXPaySingle) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 		// 转账成功
 		tmpresult := wxRefundResult{}
 		xml.Unmarshal(info.([]byte), &tmpresult)
-		tid = tmpresult.TradeID
+		resp = req
+		resp.TradeID = tmpresult.TradeID
 	}
 	return
 }
@@ -224,9 +223,9 @@ type wxBarPayRequest struct {
 // BarPay 商户主动扫码支付
 // 单商户模式调用
 // 服务商模式请调用 WXPay.BarPay
-func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
+func (WS *WXPaySingle) BarPay(ctx *Context, req *proto.Barpay) (trade *proto.Trade, e Error) {
 	trade = getTrade(map[string]interface{}{"outtradeid": req.OutTradeID})
-	if trade.ID != "" && trade.Status == TradeStatusSucc {
+	if trade.ID != "" && trade.Status == proto.Tradestatus_succ {
 		// 如果订单已经存在并且支付，返回报错
 		e.Code = PayErrPayed
 		return
@@ -239,7 +238,7 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 		OutTradeID:     req.OutTradeID,
 		Amount:         req.Amount,
 		AuthCode:       req.AuthCode,
-		SpbillCreateIP: req.IPAddr,
+		SpbillCreateIP: req.IPADDR,
 	}
 	params.SubMchID = ctx.mchid()
 	params.SubAppID = ctx.subappid()
@@ -261,11 +260,11 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 		case nextRetry:
 			// 支付异常 https://pay.weixin.qq.com/wiki/doc/api/micropay_sl.php?chapter=9_10&index=1
 			// 查询订单，如果支付失败，则取消订单
-			trade, e = WS.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
+			trade, e = WS.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
 			if e.Code == TradeErrNotFound {
 				// 订单不存在 相同参数再次支付
 				return WS.Request(rq)
-			} else if trade.Status == TradeStatusSucc {
+			} else if trade.Status == proto.Tradestatus_succ {
 				// 订单支付成功
 				paySucc = true
 			} else {
@@ -280,13 +279,13 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 			// 每3秒获取一次订单信息，直至支付超时或支付成功
 			for getNowSec()-ctx.gt() < maxTimeout {
 				time.Sleep(3 * time.Second)
-				trade, e = WS.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
-				if e.Code == 0 && trade.Status == TradeStatusSucc {
+				trade, e = WS.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
+				if e.Code == 0 && trade.Status == proto.Tradestatus_succ {
 					// 支付成功
 					paySucc = true
 					needCancel = false
 					return trade, nil
-				} else if trade.Status == TradeStatusWaitPay {
+				} else if trade.Status == proto.Tradestatus_waitepay {
 					// 订单取消支付
 					paySucc = false
 					needCancel = true
@@ -322,8 +321,8 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 	if paySucc {
 		result := trade
 		switch info.(type) {
-		case *Trade:
-			tmpresult := info.(*Trade)
+		case *proto.Trade:
+			tmpresult := info.(*proto.Trade)
 			result.TradeID = tmpresult.TradeID
 			result.Amount = req.Amount
 		case []uint8:
@@ -332,14 +331,14 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 			result.TradeID = tmpresult.TradeID
 			result.Amount = req.Amount
 		}
-		result.From = WXPAY
-		result.Type = BARPAY
+		result.From = proto.WXPAY
+		result.Type = proto.Tradetype_BAR
 		result.UserID = ctx.userid()
 		result.MchID = ctx.serviceid()
 		result.UpTime = ctx.gt()
 		result.AppID = ctx.appid()
 		result.PayTime = ctx.gt()
-		result.Status = TradeStatusSucc
+		result.Status = proto.Tradestatus_succ
 		if result.ID == "" {
 			result.OutTradeID = req.OutTradeID
 			result.ID = randomTimeString()
@@ -355,7 +354,7 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 		// 取消订单
 		// 新调接口重置时间
 		ctx.t = getNowSec()
-		WS.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
+		WS.Cancel(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
 	}
 	return
 }
@@ -408,14 +407,14 @@ type wxRefundResult struct {
 // Refund 订单退款
 // 单商户模式调用
 // 服务商模式请调用 WXPay.Refund
-func (WS *WXPaySingle) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
-	trade, e := WS.TradeInfo(ctx, &Trade{OutTradeID: req.SourceID}, true)
+func (WS *WXPaySingle) Refund(ctx *Context, req *proto.Refund) (refund *proto.Refund, e Error) {
+	trade, e := WS.TradeInfo(ctx, &proto.Trade{OutTradeID: req.SourceID})
 	if trade.TradeID == "" || e.Code == TradeErrNotFound {
 		e.Code = TradeErrNotFound
 		return
 	}
 	// 订单存在多次退款情况
-	if trade.Status != TradeStatusSucc && trade.Status != TradeStatusRefund {
+	if trade.Status != proto.Tradestatus_succ && trade.Status != proto.Tradestatus_refunded {
 		e.Code = TradeErrStatus
 		return
 	}
@@ -463,7 +462,7 @@ func (WS *WXPaySingle) Refund(ctx *Context, req *Refund) (refund *Refund, e Erro
 		// 退款成功
 		tmpresult := wxRefundResult{}
 		xml.Unmarshal(info.([]byte), &tmpresult)
-		refund = &Refund{
+		refund = &proto.Refund{
 			RefundID:    tmpresult.RefundID,
 			ID:          randomTimeString(),
 			OutRefundID: req.OutRefundID,
@@ -471,17 +470,17 @@ func (WS *WXPaySingle) Refund(ctx *Context, req *Refund) (refund *Refund, e Erro
 			UserID:      ctx.userid(),
 			Amount:      req.Amount,
 			SourceID:    req.SourceID,
-			Status:      RefundStatusSucc,
+			Status:      proto.Tradestatus_refunded,
 			UpTime:      ctx.gt(),
 			RefundTime:  ctx.gt(),
 			Create:      ctx.gt(),
 			Memo:        req.Memo,
 			AppID:       ctx.appid(),
-			From:        WXPAY,
+			From:        proto.WXPAY,
 		}
 		saveRefund(refund)
 		// 退款成功更新订单状态
-		trade.Status = TradeStatusRefund
+		trade.Status = proto.Tradestatus_refunded
 		updateTrade(map[string]string{"id": trade.ID}, trade)
 	}
 	return
@@ -506,8 +505,8 @@ type wxCancelRequest struct {
 // Cancel 撤销订单
 // 单商户模式调用
 // 服务商模式请调用 WXPay.Cancel
-func (WS *WXPaySingle) Cancel(ctx *Context, req *Trade) (e Error) {
-	trade, e := WS.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
+func (WS *WXPaySingle) Cancel(ctx *Context, req *proto.Trade) (trade *proto.Trade,e Error) {
+	trade, e = WS.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
 	params := wxCancelRequest{
 		AppID:      ctx.appid(),
 		MchID:      ctx.serviceid(),
@@ -548,11 +547,11 @@ func (WS *WXPaySingle) Cancel(ctx *Context, req *Trade) (e Error) {
 	} else {
 		// 撤销成功
 		if trade.ID != "" {
-			trade.Status = TradeStatusClose
+			trade.Status = proto.Tradestatus_closed
 			updateTrade(map[string]string{"id": trade.ID}, trade)
 		}
 	}
-	return e
+	return trade,e
 }
 
 // wxTradeInfoRequest 微信支付 获取订单详情接口请求参数结构
@@ -606,8 +605,8 @@ type wxTradeResult struct {
 // TradeInfo 获取订单详情
 // 单商户模式调用
 // 服务商模式请调用 WXPay.TradeInfo
-func (WS *WXPaySingle) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e Error) {
-	q := bson.M{"from": WXPAY}
+func (WS *WXPaySingle) TradeInfo(ctx *Context, req *proto.Trade) (trade *proto.Trade, e Error) {
+	q := bson.M{"from": proto.WXPAY}
 	if req.TradeID != "" {
 		q["tradeid"] = req.TradeID
 	}
@@ -615,13 +614,6 @@ func (WS *WXPaySingle) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Tr
 		q["outtradeid"] = req.OutTradeID
 	}
 	trade = getTrade(q)
-	if !sync {
-		// 不同步的情况直接返回本地查询数据
-		if trade.ID == "" {
-			e.Code = TradeErrNotFound
-		}
-		return
-	}
 	// 同步第三方数据
 	params := wxTradeInfoRequest{
 		AppID:      ctx.appid(),
@@ -662,7 +654,7 @@ func (WS *WXPaySingle) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Tr
 		tmpresult := wxTradeResult{}
 		xml.Unmarshal(info.([]byte), &tmpresult)
 		// 数据返回后以第三方返回数据为准
-		trade = &Trade{
+		trade = &proto.Trade{
 			Amount:     tmpresult.Amount,
 			Status:     wxTradeStatusMap[tmpresult.Status],
 			ID:         trade.ID,
@@ -671,10 +663,10 @@ func (WS *WXPaySingle) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Tr
 			TradeID:    tmpresult.TradeID,
 			Create:     trade.Create,
 			Type:       trade.Type,
-			From:       WXPAY,
+			From:       proto.WXPAY,
 			AppID:      trade.AppID,
 		}
-		if trade.Status == TradeStatusSucc {
+		if trade.Status == proto.Tradestatus_succ {
 			trade.PayTime = str2Sec("20060102150405", tmpresult.TimeEnd)
 		}
 		trade.UserID = ctx.userid()
@@ -749,9 +741,9 @@ type wxPayParamsResult struct {
 // 用于前段请求，不想暴露证书的私密信息的可用此方法组装请求参数，前端只负责请求
 // 支持的有 JS支付，手机app支付，公众号支付
 // APP支付紧支持单商户模式，公众号支付，扫码支付等支持服务商和单商户模式
-func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e Error) {
+func (WS *WXPaySingle) PayParams(ctx *Context, req *proto.Params) (data *proto.ParamsData, e Error) {
 	trade := getTrade(map[string]interface{}{"outtradeid": req.OutTradeID})
-	if trade.ID != "" && trade.Status == TradeStatusSucc {
+	if trade.ID != "" && trade.Status == proto.Tradestatus_succ {
 		// 检测订单号是否存在 并且支付成功
 		e.Code = TradeErrStatus
 		e.Msg = "订单已支付"
@@ -759,16 +751,16 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 	}
 	var tradeType string
 	switch req.Type {
-	case APPPAY:
+	case proto.Tradetype_APP:
 		tradeType = "APP"
-	case JSPAY, MINIPAY:
+	case proto.Tradetype_JSAPI, proto.Tradetype_MINIP:
 		tradeType = "JSAPI"
 		if req.SubOpenID == "" && req.OpenID == "" {
 			e.Code = SysErrParams
 			e.Msg = "openid sub_openid 必传一个"
 			return
 		}
-	case CBARPAY:
+	case proto.Tradetype_CBAR:
 		tradeType = "NATIVE"
 	default:
 		tradeType = "NATIVE"
@@ -783,7 +775,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 		Body:       req.ItemDes,
 		OutTradeID: req.OutTradeID,
 		Amount:     fmt.Sprintf("%d", req.Amount),
-		IPAddr:     req.IPAddr,
+		IPAddr:     req.IPADDR,
 		NotifyURL:  req.NotifyURL,
 		TradeType:  tradeType,
 		OpenID:     req.OpenID,
@@ -817,7 +809,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 		}
 	}
 	info, err := WS.Request(rq)
-	Log.DEBUG.Printf("%+v,%+v", info, err)
+	logrus.Debugf("%+v,%+v", info, err)
 	if err != nil {
 		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
@@ -829,9 +821,9 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 		// 请求成功
 		tmpresult := wxPayParamsResult{}
 		xml.Unmarshal(info.([]byte), &tmpresult)
-		data = &PayParams{}
+		data = &proto.ParamsData{}
 		switch req.Type {
-		case APPPAY:
+		case proto.Tradetype_APP:
 			// app支付返回的是请求参数
 			appparams := map[string]string{
 				"appid":     ctx.appid(),
@@ -844,7 +836,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 			appparams["sign"] = WS.Signer(ctx, appparams)
 			data.SourceData = string(jsonEncode(appparams))
 			data.Params = httpBuildQuery(appparams)
-		case MINIPAY, JSPAY:
+		case proto.Tradetype_MINIP, proto.Tradetype_JSAPI:
 			// 小程序和公众号支付返回接口组装好的请求参数
 			params := map[string]string{
 				// "appId":     ctx.appid(),
@@ -853,7 +845,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 				"package":   fmt.Sprintf("prepay_id=%s", tmpresult.PrePayID),
 				"signType":  "MD5",
 			}
-			if ctx.Type == WXPAYSINGLE {
+			if ctx.Type == proto.WXPAYSINGLE {
 				// 单商户模式
 				params["appId"] = ctx.appid()
 			} else {
@@ -863,7 +855,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 			params["paySign"] = WS.Signer(ctx, params)
 			data.SourceData = string(jsonEncode(params))
 			data.Params = httpBuildQuery(params)
-		case CBARPAY, WEBPAY:
+		case proto.Tradetype_CBAR, proto.Tradetype_WEB:
 			// 顾客扫码支付 返回的是二维码地址
 			data.SourceData = string(jsonEncode(map[string]string{
 				"code_url": tmpresult.CodeURL,
@@ -874,7 +866,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 				"code_url": tmpresult.CodeURL,
 			}))
 		}
-		newTrade := &Trade{
+		newTrade := &proto.Trade{
 			OutTradeID: req.OutTradeID,
 			Amount:     req.Amount,
 			ID:         randomTimeString(),
@@ -882,7 +874,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 			MchID:      ctx.serviceid(),
 			UpTime:     getNowSec(),
 			Create:     getNowSec(),
-			From:       WXPAY,
+			From:       proto.WXPAY,
 			AppID:      ctx.appid(),
 		}
 		// save tradeinfo
@@ -928,14 +920,14 @@ func (WS *WXPaySingle) request(url string, data []byte, tls bool, ctx *Context) 
 	} else {
 		body, err = postRequest(url, "text/xml", bytes.NewBuffer(data))
 	}
-	Log.DEBUG.Printf("url:%s,data:%s,tls:%v,err:%v", url, string(data), tls, err)
+	logrus.Debugf("url:%s,data:%s,tls:%v,err:%v", url, string(data), tls, err)
 	if err != nil {
 		// 网络发起请求失败
 		// 需重试
 		return nil, netConnErr, err
 	}
 	result := wxResult{}
-	Log.DEBUG.Printf("WXPay request url:%s,body:%s", url, string(body))
+	logrus.Debugf("WXPay request url:%s,body:%s", url, string(body))
 	if err := xml.Unmarshal(body, &result); err != nil {
 		return nil, nextStop, err
 	}
@@ -964,7 +956,7 @@ func (WS *WXPaySingle) errorCheck(result wxResult) (Status, error) {
 	return code, newError(result.ErrCode)
 }
 
-var wxErrMap = map[string]int{
+var wxErrMap = map[string]int32{
 	"ORDERPAID":         PayErrPayed,
 	"NOAUTH":            AuthErr,
 	"AUTHCODEEXPIRE":    PayErrCode,
@@ -977,12 +969,12 @@ var wxErrMap = map[string]int{
 	"ORDERNOTEXIST":     TradeErrNotFound,
 	"REVERSE_EXPIRE":    RefundErrExpire,
 }
-var wxTradeStatusMap = map[string]Status{
-	"SUCCESS":    TradeStatusSucc,
-	"REFUND":     TradeStatusRefund,
-	"NOTPAY":     TradeStatusWaitPay,
-	"CLOSED":     TradeStatusClose,
-	"REVOKED":    TradeStatusClose,
-	"USERPAYING": TradeStatusPaying,
-	"PAYERROR":   TradeStatusWaitPay,
+var wxTradeStatusMap = map[string]proto.Tradestatus{
+	"SUCCESS":    proto.Tradestatus_succ,
+	"REFUND":     proto.Tradestatus_refunded,
+	"NOTPAY":     proto.Tradestatus_waitepay,
+	"CLOSED":     proto.Tradestatus_closed,
+	"REVOKED":    proto.Tradestatus_closed,
+	"USERPAYING": proto.Tradestatus_paying,
+	"PAYERROR":   proto.Tradestatus_waitepay,
 }

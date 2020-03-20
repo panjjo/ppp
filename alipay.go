@@ -6,6 +6,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
+	proto "github.com/panjjo/ppp/proto"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -15,9 +17,6 @@ const (
 	aliPayDefaultFormat   = "JSON"
 	aliPayDefaultCharset  = "utf-8"
 	aliPayDefaultSignType = "RSA2"
-
-	// ALIPAY 支付宝支付的标识
-	ALIPAY = "alipay"
 )
 
 var alipay *AliPay
@@ -31,12 +30,12 @@ func aliConfig(config ConfigSingle) (a config) {
 	if config.AppID != "" {
 		a.appid = config.AppID
 	} else {
-		Log.ERROR.Panicf("not found alipay appid")
+		logrus.Fatalf("not found alipay appID")
 	}
 	if config.URL != "" {
 		a.url = config.URL
 	} else {
-		Log.ERROR.Panicf("not found alipay apiurl")
+		logrus.Fatalf("not found alipay apiurl")
 	}
 	a.notify = config.Notify
 
@@ -46,13 +45,13 @@ func aliConfig(config ConfigSingle) (a config) {
 	// 加载应用私钥证书
 	private, err := LoadPrivateKeyFromFile(filepath.Join(config.CertPath, "private.key"))
 	if err != nil {
-		Log.ERROR.Panicf("load alipay privateCert fail,file:%s,err:%s", config.CertPath, err)
+		logrus.Fatalf("load alipay privateCert fail,file:%s,err:%s", config.CertPath, err)
 	}
 	a.private = private
 	// 加载支付宝公钥
 	public, err := LoadPublicKeyFromFile(filepath.Join(config.CertPath, "public.key"))
 	if err != nil {
-		Log.ERROR.Panicf("load alipay publicCert fail,file:%s,err:%s", config.CertPath, err)
+		logrus.Fatalf("load alipay publicCert fail,file:%s,err:%s", config.CertPath, err)
 	}
 	a.public = public
 	return a
@@ -75,14 +74,14 @@ func NewAliPay(cfgs Config) *AliPay {
 			alipay.cfgs[cfg.AppID] = c
 		}
 	}
-	Log.DEBUG.Printf("alipay cfgs:%+v,def:%+v", alipay.cfgs, alipay.def)
+	logrus.Debugf("alipay cfgs:%+v,def:%+v", alipay.cfgs, alipay.def)
 	return alipay
 }
 
 // MchPay 企业付款 到 个人支付宝账号
 // 单商户模式调用
 // UserName 不为空则强制检测真实姓名和支付宝账号是否一致
-func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
+func (A *AliPay) MchPay(ctx *Context, req *proto.Transfer) (resp *proto.Transfer, e Error) {
 	params := map[string]interface{}{
 		"out_biz_no":      req.OutTradeID,
 		"payee_account":   req.Account,
@@ -91,9 +90,9 @@ func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 		"remark":          req.Desc,
 	}
 	switch req.AccountType {
-	case ACCOUNTTYPEID:
+	case proto.Accounttype_id:
 		params["payee_type"] = "ALIPAY_USERID"
-	case ACCOUNTTYPELOGIN:
+	case proto.Accounttype_login:
 		params["payee_type"] = "ALIPAY_LOGONID"
 	default:
 		params["payee_type"] = "ALIPAY_LOGONID"
@@ -125,7 +124,8 @@ func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 	} else {
 		// 转账成功
 		tmpresult := info.(map[string]interface{})
-		tid = tmpresult["order_id"].(string)
+		resp = req
+		resp.TradeID = tmpresult["order_Id"].(string)
 	}
 	return
 }
@@ -135,9 +135,9 @@ func (A *AliPay) MchPay(ctx *Context, req *MchPay) (tid string, e Error) {
 // 支持的有 网站支付，手机app支付，h5支付等
 // 仅支持单商户模式，不支持服务商模式
 // 默认使用的服务商对应账号开通的子商户收款（服务商模式下的分润获得的子商户）
-func (A *AliPay) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e Error) {
-	trade := getTrade(map[string]interface{}{"outtradeid": req.OutTradeID})
-	if trade.ID != "" && trade.Status == TradeStatusSucc {
+func (A *AliPay) PayParams(ctx *Context, req *proto.Params) (data *proto.ParamsData, e Error) {
+	trade := getTrade(map[string]interface{}{"OutTradeID": req.OutTradeID})
+	if trade.ID != "" && trade.Status == proto.Tradestatus_succ {
 		// 检测订单号是否存在 并且支付成功
 		e.Code = TradeErrStatus
 		e.Msg = "订单已支付"
@@ -145,10 +145,10 @@ func (A *AliPay) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e E
 	}
 	var productCode, method string
 	switch req.Type {
-	case WEBPAY:
+	case proto.Tradetype_WEB:
 		productCode = "FAST_INSTANT_TRADE_PAY"
 		method = "alipay.trade.page.pay"
-	case APPPAY:
+	case proto.Tradetype_APP:
 		productCode = "QUICK_MSECURITY_PAY"
 		method = "alipay.trade.app.pay"
 	default:
@@ -161,8 +161,8 @@ func (A *AliPay) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e E
 		"out_trade_no":    req.OutTradeID,
 		"total_amount":    float64(req.Amount) / 100.0,
 		"product_code":    productCode,
-		"store_id":        req.ShopID,
-		"passback_params": req.Ex,
+		"store_Id":        req.ShopID,
+		"passback_params": req.EX,
 	}
 	if req.NotifyURL == "" {
 		req.NotifyURL = ctx.Notify()
@@ -173,11 +173,11 @@ func (A *AliPay) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e E
 	sysParams["return_url"] = req.ReturnURL
 	sysParams["notify_url"] = req.NotifyURL
 	sysParams["sign"] = base64Encode(A.Signer(ctx, sysParams))
-	data = &PayParams{
+	data = &proto.ParamsData{
 		Params:     httpBuildQuery(sysParams),
 		SourceData: string(jsonEncode(sysParams)),
 	}
-	newTrade := &Trade{
+	newTrade := &proto.Trade{
 		OutTradeID: req.OutTradeID,
 		Amount:     req.Amount,
 		ID:         randomTimeString(),
@@ -185,14 +185,13 @@ func (A *AliPay) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e E
 		MchID:      ctx.serviceid(),
 		UpTime:     getNowSec(),
 		Create:     getNowSec(),
-		AppID:      ctx.appid(),
-		From:       ALIPAY,
+		AppID:      req.AppID,
+		From:       proto.ALIPAY,
 	}
 	// save tradeinfo
 	if trade.ID != "" {
 		// 更新
-		updateTrade(map[string]interface{}{"outtradeid": trade.OutTradeID}, newTrade)
-
+		updateTrade(map[string]interface{}{"OutTradeID": trade.OutTradeID}, newTrade)
 	} else {
 		// 新增
 		saveTrade(newTrade)
@@ -201,19 +200,19 @@ func (A *AliPay) PayParams(ctx *Context, req *TradeParams) (data *PayParams, e E
 }
 
 // BarPay 商户主动扫码支付
-// 同一个outtradeid 不能重复支付
+// 同一个OutTradeID 不能重复支付
 // 支持服务商模式，单商户模式
-func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
+func (A *AliPay) BarPay(ctx *Context, req *proto.Barpay) (trade *proto.Trade, e Error) {
 	// 获取授权
 	auth := ctx.getAuth(req.UserID, req.MchID)
-	if auth.Status != AuthStatusSucc {
+	if auth.Status != proto.Accountstatus_ok {
 		// 授权错误
 		e.Code = AuthErr
 		return
 	}
 
-	trade = getTrade(map[string]interface{}{"outtradeid": req.OutTradeID})
-	if trade.ID != "" && trade.Status == TradeStatusSucc {
+	trade = getTrade(map[string]interface{}{"OutTradeID": req.OutTradeID})
+	if trade.ID != "" && trade.Status == proto.Tradestatus_succ {
 		// 如果订单已经存在并且支付，返回报错
 		e.Code = PayErrPayed
 		return
@@ -225,11 +224,11 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 		"subject":      req.TradeName,
 		"total_amount": float64(req.Amount) / 100.0,
 		"body":         req.ItemDes,
-		"store_id":     req.ShopID,
+		"store_Id":     req.ShopID,
 	}
 	// 设置反佣系统商编号
 	if ctx.serviceid() != "" {
-		params["extend_params"] = map[string]interface{}{"sys_service_provider_id": ctx.serviceid()}
+		params["extend_params"] = map[string]interface{}{"sys_service_provIder_Id": ctx.serviceid()}
 	}
 	// 组装系统参数
 	sysParams := A.sysParams(ctx)
@@ -252,11 +251,11 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 		case nextRetry:
 			// 支付异常 https://docs.open.alipay.com/194/105322/
 			// 查询订单，如果支付失败，则取消订单
-			trade, e = A.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
+			trade, e = A.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
 			if e.Code == TradeErrNotFound {
 				// 订单不存在 相同参数再次支付
 				return A.Request(rq)
-			} else if trade.Status == TradeStatusSucc {
+			} else if trade.Status == proto.Tradestatus_succ {
 				// 订单支付成功
 				paySucc = true
 			} else {
@@ -271,8 +270,8 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 			// 每3秒获取一次订单信息，直至支付超时或支付成功
 			for getNowSec()-ctx.gt() < maxTimeout {
 				time.Sleep(3 * time.Second)
-				trade, e = A.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
-				if e.Code == 0 && trade.Status == TradeStatusSucc {
+				trade, e = A.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
+				if e.Code == 0 && trade.Status == proto.Tradestatus_succ {
 					// 支付成功
 					paySucc = true
 					needCancel = false
@@ -307,22 +306,22 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 	if paySucc {
 		result := trade
 		switch info.(type) {
-		case *Trade:
-			tmpresult := info.(*Trade)
+		case *proto.Trade:
+			tmpresult := info.(*proto.Trade)
 			result.TradeID = tmpresult.TradeID
 		case map[string]interface{}:
 			tmpresult := info.(map[string]interface{})
 			result.TradeID = tmpresult["trade_no"].(string)
 		}
 		result.Amount = req.Amount
-		result.From = ALIPAY
+		result.From = proto.ALIPAY
 		result.UserID = ctx.userid()
 		result.MchID = ctx.mchid()
 		result.UpTime = ctx.gt()
 		result.PayTime = ctx.gt()
 		result.AppID = ctx.appid()
-		result.Status = TradeStatusSucc
-		result.Type = BARPAY
+		result.Status = proto.Tradestatus_succ
+		result.Type = proto.Tradetype_BAR
 		if result.ID == "" {
 			result.OutTradeID = req.OutTradeID
 			result.ID = randomTimeString()
@@ -331,35 +330,35 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 			saveTrade(result)
 		} else {
 			// 更新订单
-			updateTrade(map[string]interface{}{"id": trade.ID}, result)
+			updateTrade(map[string]interface{}{"Id": trade.ID}, result)
 		}
 	}
 	if needCancel {
 		// 取消订单
 		ctx.t = getNowSec()
-		A.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
+		A.Cancel(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
 	}
 	return
 }
 
 // Refund 退款
-// req sourceid使用交易里面对应的outtradeid
+// req sourceId使用交易里面对应的OutTradeID
 // 仅支持使用ppp支付的订单退款
 // 支持服务商模式，单商户模式
-func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
+func (A *AliPay) Refund(ctx *Context, req *proto.Refund) (refund *proto.Refund, e Error) {
 	// 获取授权
 	auth := ctx.getAuth(req.UserID, req.MchID)
-	if auth.Status != AuthStatusSucc {
+	if auth.Status != proto.Accountstatus_ok {
 		// 授权错误
 		e.Code = AuthErr
 		return
 	}
-	trade, e := A.TradeInfo(ctx, &Trade{OutTradeID: req.SourceID}, true)
+	trade, e := A.TradeInfo(ctx, &proto.Trade{OutTradeID: req.SourceID})
 	if trade.ID == "" || e.Code == TradeErrNotFound {
 		e.Code = TradeErrNotFound
 		return
 	}
-	if trade.Status != TradeStatusSucc && trade.Status != TradeStatusRefund {
+	if trade.Status != proto.Tradestatus_succ && trade.Status != proto.Tradestatus_refunded {
 		e.Code = TradeErrStatus
 		return
 	}
@@ -399,7 +398,7 @@ func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
 	} else {
 		// 退款成功
 		result := info.(map[string]interface{})
-		refund = &Refund{
+		refund = &proto.Refund{
 			RefundID:    result["trade_no"].(string),
 			ID:          randomTimeString(),
 			OutRefundID: req.OutRefundID,
@@ -407,31 +406,31 @@ func (A *AliPay) Refund(ctx *Context, req *Refund) (refund *Refund, e Error) {
 			UserID:      ctx.userid(),
 			Amount:      req.Amount,
 			SourceID:    req.SourceID,
-			Status:      RefundStatusSucc,
+			Status:      proto.Tradestatus_refunded,
 			UpTime:      ctx.gt(),
 			RefundTime:  ctx.gt(),
 			Create:      ctx.gt(),
-			From:        ALIPAY,
+			From:        proto.ALIPAY,
 			AppID:       ctx.appid(),
 			Memo:        req.Memo,
 		}
 		saveRefund(refund)
 		// 退款成功更新订单状态
-		trade.Status = TradeStatusRefund
-		updateTrade(map[string]string{"id": trade.ID}, trade)
+		trade.Status = proto.Tradestatus_refunded
+		updateTrade(map[string]string{"Id": trade.ID}, trade)
 	}
 	return
 }
 
 // Cancel 取消订单
-// 可用参数 req:tradeid outtradeid mchid userid
+// 可用参数 req:tradeId OutTradeID MchID UserID
 // 如果订单已支付会取消失败
 // 支持服务商模式，单商户模式
-func (A *AliPay) Cancel(ctx *Context, req *Trade) (e Error) {
-	trade, e := A.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
+func (A *AliPay) Cancel(ctx *Context, req *proto.Trade) (trade *proto.Trade, e Error) {
+	trade, e = A.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
 	// 获取授权
 	auth := ctx.getAuth(req.UserID, req.MchID)
-	if auth.Status != AuthStatusSucc {
+	if auth.Status != proto.Accountstatus_ok {
 		// 授权错误
 		e.Code = AuthErr
 		return
@@ -470,40 +469,32 @@ func (A *AliPay) Cancel(ctx *Context, req *Trade) (e Error) {
 	} else {
 		// 撤销成功
 		if trade.ID != "" {
-			trade.Status = TradeStatusClose
-			updateTrade(map[string]string{"id": trade.ID}, trade)
+			trade.Status = proto.Tradestatus_cancel
+			updateTrade(map[string]string{"Id": trade.ID}, trade)
 		}
 	}
-	return e
+	return trade, e
 }
 
 // TradeInfo 获取订单详情
-// 可用参数 req: tradeid outtradeid mchid userid
-// sync 是否进行数据远程同步，true 同步-获取第三方数据并更新本地数据，false 不同步-只获取本地数据返回
+// 可用参数 req: tradeId OutTradeID MchID UserID
 // 支持服务商模式，单商户模式
-func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e Error) {
+func (A *AliPay) TradeInfo(ctx *Context, req *proto.Trade) (trade *proto.Trade, e Error) {
 	// 获取授权
 	auth := ctx.getAuth(req.UserID, req.MchID)
-	if auth.Status != AuthStatusSucc {
+	if auth.Status != proto.Accountstatus_ok {
 		// 授权错误
 		e.Code = AuthErr
 		return
 	}
-	q := map[string]interface{}{"from": ALIPAY}
+	q := map[string]interface{}{"from": proto.ALIPAY}
 	if req.OutTradeID != "" {
-		q["outtradeid"] = req.OutTradeID
+		q["OutTradeID"] = req.OutTradeID
 	}
 	if req.TradeID != "" {
-		q["tradeid"] = req.TradeID
+		q["tradeId"] = req.TradeID
 	}
 	trade = getTrade(q)
-	if !sync {
-		// 不同步的情况直接返回本地查询数据
-		if trade.ID == "" {
-			e.Code = TradeErrNotFound
-		}
-		return
-	}
 	// 同步第三方数据
 	params := map[string]interface{}{
 		"out_trade_no": req.OutTradeID,
@@ -540,7 +531,7 @@ func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e
 		// 成功返回
 		tmpresult := info.(map[string]interface{})
 		// 数据返回后以第三方返回数据为准
-		trade = &Trade{
+		trade = &proto.Trade{
 			Amount:     round(parseFloat(tmpresult["total_amount"].(string)) * 100),
 			Status:     aliTradeStatusMap[tmpresult["trade_status"].(string)],
 			ID:         trade.ID,
@@ -549,7 +540,7 @@ func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e
 			TradeID:    tmpresult["trade_no"].(string),
 			Create:     trade.Create,
 			Type:       trade.Type,
-			From:       ALIPAY,
+			From:       proto.ALIPAY,
 			AppID:      ctx.appid(),
 		}
 		trade.MchID = ctx.mchid()
@@ -568,7 +559,7 @@ func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e
 			// }
 		} else {
 			// 更新
-			err := updateTrade(map[string]interface{}{"id": trade.ID}, trade)
+			err := updateTrade(map[string]interface{}{"Id": trade.ID}, trade)
 			if err != nil {
 				e.Code = SysErrDB
 				e.Msg = err.Error()
@@ -579,8 +570,8 @@ func (A *AliPay) TradeInfo(ctx *Context, req *Trade, sync bool) (trade *Trade, e
 }
 
 // AuthSigned 支付宝授权签约
-// 支付宝签约完成后调用，可用参数 status account mchid
-func (A *AliPay) AuthSigned(ctx *Context, req *Auth) (auth *Auth, e Error) {
+// 支付宝签约完成后调用，可用参数 status account MchID
+func (A *AliPay) AuthSigned(ctx *Context, req *proto.Account) (auth *proto.Account, e Error) {
 	auth = ctx.getAuth("authsigned", req.MchID)
 	if auth.ID == "" {
 		e.Code = AuthErr
@@ -590,10 +581,10 @@ func (A *AliPay) AuthSigned(ctx *Context, req *Auth) (auth *Auth, e Error) {
 	if req.Status != auth.Status {
 		auth.Status = req.Status
 		// 检测权限是否真实开通
-		if auth.Status == AuthStatusSucc {
-			// 临时指定auth状态为AuthStatusSucc 为了后面通过权限验证
-			ctx.auth.Status = AuthStatusSucc
-			if _, err := A.TradeInfo(ctx, &Trade{MchID: ctx.mchid(), OutTradeID: "tradeforAuthSignedCheck"}, true); err.Code == AuthErr {
+		if auth.Status == proto.Accountstatus_unauth {
+			// 临时指定auth状态为proto.Tradestatus_succ 为了后面通过权限验证
+			ctx.auth.Status = proto.Accountstatus_ok
+			if _, err := A.TradeInfo(ctx, &proto.Trade{MchID: ctx.mchid(), OutTradeID: "tradeforAuthSignedCheck"}); err.Code == AuthErr {
 				// 查询订单返回权限错误，说明授权存在问题
 				e.Code = AuthErr
 				e.Msg = err.Msg
@@ -609,15 +600,15 @@ func (A *AliPay) AuthSigned(ctx *Context, req *Auth) (auth *Auth, e Error) {
 	updateToken(ctx.mchid(), ctx.appid(), auth)
 
 	// 更新所有绑定过此auth的用户数据
-	updateUserMulti(map[string]interface{}{"mchid": ctx.mchid(), "type": ALIPAY}, map[string]interface{}{"status": UserSucc})
+	updateUserMulti(map[string]interface{}{"MchID": ctx.mchid(), "type": proto.ALIPAY}, map[string]interface{}{"status": auth.Status})
 	return
 }
 
 // Auth 支付宝授权token
 // token 调用后只是授权接口调用权限，还需要支付宝签约完成后调用AuthSigned
 // token 每次授权都会变化，新的生效，老的过期
-// mchid 商户id存在时 刷新token，不存在时创建一个新的Auth对象
-func (A *AliPay) Auth(ctx *Context, code string) (auth *Auth, e Error) {
+// MchID 商户Id存在时 刷新token，不存在时创建一个新的Auth对象
+func (A *AliPay) Auth(ctx *Context, code string) (auth *proto.Account, e Error) {
 	params := map[string]interface{}{}
 	params["grant_type"] = "authorization_code"
 	params["code"] = code
@@ -636,16 +627,16 @@ func (A *AliPay) Auth(ctx *Context, code string) (auth *Auth, e Error) {
 	} else {
 		// 成功返回
 		tmpresult := info.(map[string]interface{})
-		mchid := tmpresult["user_id"].(string)
-		auth = ctx.getAuth("alipay.auth", mchid)
+		MchID := tmpresult["user_Id"].(string)
+		auth = ctx.getAuth("alipay.auth", MchID)
 		auth.Token = tmpresult["app_auth_token"].(string)
 		// 保存用户授权
 		if auth.ID != "" {
 			err = updateToken(ctx.mchid(), ctx.appid(), auth)
 		} else {
 			auth.ID = randomTimeString()
-			auth.MchID = mchid
-			auth.From = ALIPAY
+			auth.MchID = MchID
+			auth.From = proto.ALIPAY
 			auth.AppID = ctx.appid()
 			err = saveToken(auth)
 		}
@@ -662,10 +653,10 @@ func (A *AliPay) Auth(ctx *Context, code string) (auth *Auth, e Error) {
 // 多个用户可使用同一个Auth，可有效防止重复授权导致多个Auth争取token问题
 // 绑定了之后 调用其他接口可传UserID查找对应Auth
 // 如果业务逻辑不需要绑定，就不要绑定，调用其他接口传MchID即可
-func (A *AliPay) BindUser(ctx *Context, req *User) (user *User, e Error) {
+func (A *AliPay) BindUser(ctx *Context, req *proto.User) (user *proto.User, e Error) {
 	if req.UserID == "" || req.MchID == "" {
 		e.Code = SysErrParams
-		e.Msg = "userid mchid 必传"
+		e.Msg = "UserID MchID 必传"
 		return
 	}
 	auth := ctx.getAuth(req.UserID, req.MchID)
@@ -674,45 +665,22 @@ func (A *AliPay) BindUser(ctx *Context, req *User) (user *User, e Error) {
 		e.Code = AuthErr
 		return
 	}
-	user = getUser(req.UserID, ALIPAY)
+	user = getUser(req.UserID, proto.ALIPAY)
 	if user.ID != "" {
 		// 存在更新授权
 		user.MchID = ctx.mchid()
 		user.Status = auth.Status
-		updateUser(map[string]interface{}{"userid": user.UserID}, user)
+		updateUser(map[string]interface{}{"UserID": user.UserID}, user)
 	} else {
 		// 保存授权
-		user = &User{
+		user = &proto.User{
 			UserID: req.UserID,
 			MchID:  req.MchID,
 			Status: auth.Status,
 			ID:     randomTimeString(),
-			From:   ALIPAY,
+			From:   proto.ALIPAY,
 		}
 		saveUser(user)
-	}
-	return
-}
-
-// UnBindUser 用户解除绑定
-// 将Auth授权和User进行解绑
-// 多个用户可使用同一个Auth，可有效防止重复授权导致多个Auth争取token问题
-// 解绑之后auth授权依然有效
-func (A *AliPay) UnBindUser(ctx *Context, req *User) (user *User, e Error) {
-	if req.UserID == "" {
-		e.Code = SysErrParams
-		e.Msg = "userid  必传"
-		return
-	}
-	user = getUser(req.UserID, ALIPAY)
-	if user.ID != "" {
-		// 存在更新授权
-		user.MchID = ""
-		user.Status = UserWaitVerify
-		updateUser(map[string]interface{}{"userid": user.UserID}, user)
-	} else {
-		// 用户不存在
-		e.Code = UserErrNotFount
 	}
 	return
 }
@@ -740,7 +708,7 @@ func (A *AliPay) request(url string, relKey string) (interface{}, Status, error)
 		return nil, netConnErr, err
 	}
 	result := map[string]interface{}{}
-	Log.DEBUG.Printf("alipayresult:%+v", string(body))
+	logrus.Debugf("alipayresult:%+v", string(body))
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, nextStop, err
 	}
@@ -768,7 +736,7 @@ func (A *AliPay) Signer(ctx *Context, data map[string]string) (signer []byte) {
 
 func (A *AliPay) sysParams(ctx *Context) map[string]string {
 	return map[string]string{
-		"app_id":    ctx.appid(),
+		"app_Id":    ctx.appid(),
 		"format":    aliPayDefaultFormat,
 		"charset":   aliPayDefaultCharset,
 		"sign_type": aliPayDefaultSignType,
@@ -801,18 +769,18 @@ func (A *AliPay) errorCheck(data map[string]interface{}) (Status, error) {
 	}
 }
 
-var aliErrMap = map[string]int{
-	"40004ACQ.PAYMENT_AUTH_CODE_INVALID":  PayErrCode,
+var aliErrMap = map[string]int32{
+	"40004ACQ.PAYMENT_AUTH_CODE_INVALId":  PayErrCode,
 	"40004ACQ.TRADE_HAS_SUCCESS":          PayErrPayed,
 	"40004ACQ.TRADE_NOT_EXIST":            TradeErrNotFound,
 	"40004ACQ.TRADE_STATUS_ERROR":         TradeErrStatus,
 	"40004ACQ.SELLER_BALANCE_NOT_ENOUGH":  UserErrBalance,
 	"40004ACQ.REFUND_AMT_NOT_EQUAL_TOTAL": RefundErrAmount,
-	"40004ACQ.ACCESS_FORBIDDEN":           AuthErr,
+	"40004ACQ.ACCESS_FORBIdDEN":           AuthErr,
 }
-var aliTradeStatusMap = map[string]Status{
-	"WAIT_BUYER_PAY": TradeStatusWaitPay,
-	"TRADE_CLOSED":   TradeStatusClose,
-	"TRADE_SUCCESS":  TradeStatusSucc,
-	"TRADE_FINISHED": TradeStatusSucc,
+var aliTradeStatusMap = map[string]proto.Tradestatus{
+	"WAIT_BUYER_PAY": proto.Tradestatus_waitepay,
+	"TRADE_CLOSED":   proto.Tradestatus_closed,
+	"TRADE_SUCCESS":  proto.Tradestatus_succ,
+	"TRADE_FINISHED": proto.Tradestatus_succ,
 }
