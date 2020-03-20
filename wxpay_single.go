@@ -809,7 +809,6 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *proto.Params) (data *proto.P
 		}
 	}
 	info, err := WS.Request(rq)
-	logrus.Debugf("%+v,%+v", info, err)
 	if err != nil {
 		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {

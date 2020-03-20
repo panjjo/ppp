@@ -161,7 +161,7 @@ func (A *AliPay) PayParams(ctx *Context, req *proto.Params) (data *proto.ParamsD
 		"out_trade_no":    req.OutTradeID,
 		"total_amount":    float64(req.Amount) / 100.0,
 		"product_code":    productCode,
-		"store_Id":        req.ShopID,
+		"store_id":        req.ShopID,
 		"passback_params": req.EX,
 	}
 	if req.NotifyURL == "" {
@@ -177,6 +177,8 @@ func (A *AliPay) PayParams(ctx *Context, req *proto.Params) (data *proto.ParamsD
 		Params:     httpBuildQuery(sysParams),
 		SourceData: string(jsonEncode(sysParams)),
 	}
+	logrus.Println(data.Params)
+	logrus.Println(data.SourceData)
 	newTrade := &proto.Trade{
 		OutTradeID: req.OutTradeID,
 		Amount:     req.Amount,
@@ -224,7 +226,7 @@ func (A *AliPay) BarPay(ctx *Context, req *proto.Barpay) (trade *proto.Trade, e 
 		"subject":      req.TradeName,
 		"total_amount": float64(req.Amount) / 100.0,
 		"body":         req.ItemDes,
-		"store_Id":     req.ShopID,
+		"store_id":     req.ShopID,
 	}
 	// 设置反佣系统商编号
 	if ctx.serviceid() != "" {
@@ -492,7 +494,7 @@ func (A *AliPay) TradeInfo(ctx *Context, req *proto.Trade) (trade *proto.Trade, 
 		q["OutTradeID"] = req.OutTradeID
 	}
 	if req.TradeID != "" {
-		q["tradeId"] = req.TradeID
+		q["TradeID"] = req.TradeID
 	}
 	trade = getTrade(q)
 	// 同步第三方数据
@@ -627,7 +629,7 @@ func (A *AliPay) Auth(ctx *Context, code string) (auth *proto.Account, e Error) 
 	} else {
 		// 成功返回
 		tmpresult := info.(map[string]interface{})
-		MchID := tmpresult["user_Id"].(string)
+		MchID := tmpresult["user_id"].(string)
 		auth = ctx.getAuth("alipay.auth", MchID)
 		auth.Token = tmpresult["app_auth_token"].(string)
 		// 保存用户授权
@@ -727,16 +729,19 @@ func (A *AliPay) request(url string, relKey string) (interface{}, Status, error)
 // Signer 支付宝请求做验签
 // 使用应用私钥
 func (A *AliPay) Signer(ctx *Context, data map[string]string) (signer []byte) {
-	message := mapSortAndJoin(data, "=", "&", false)
+	message := mapSortAndJoin(data, "=", "&", true)
+	logrus.Infoln(message)
 	rng := rand.Reader
 	hashed := sha256.Sum256([]byte(message))
-	signer, _ = rsa.SignPKCS1v15(rng, ctx.privateKey(), crypto.SHA256, hashed[:])
+	var e error
+	signer, e = rsa.SignPKCS1v15(rng, ctx.privateKey(), crypto.SHA256, hashed[:])
+	fmt.Println(e)
 	return
 }
 
 func (A *AliPay) sysParams(ctx *Context) map[string]string {
 	return map[string]string{
-		"app_Id":    ctx.appid(),
+		"app_id":    ctx.appid(),
 		"format":    aliPayDefaultFormat,
 		"charset":   aliPayDefaultCharset,
 		"sign_type": aliPayDefaultSignType,

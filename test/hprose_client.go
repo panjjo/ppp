@@ -9,15 +9,13 @@ import (
 )
 
 func main() {
-	client,err:=grpc.Dial("127.0.0.1:1233",grpc.WithInsecure())
+	client,err:=grpc.Dial("127.0.0.1:1234",grpc.WithInsecure())
 	if err!=nil{
 		log.Fatal(err)
 	}
 	pppClient:=ppp.NewPPPClient(client)
-	trade,err:=pppClient.AliBarPay(context.Background(),&ppp.Barpay{
-		UserID:"a56a767946",
-		AuthCode:"1354564",
-		ShopID:"111",
+	trade,err:=pppClient.AliPayParams(context.Background(),&ppp.Params{
+		AppID:"2017020405513208",
 		Amount: 1,
 		TradeName:"test",
 		OutTradeID:"123adskfjoeifja",

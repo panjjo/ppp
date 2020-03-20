@@ -19,6 +19,10 @@ func NewLogger(str string) {
 	logrus.AddHook(newlogHook())
 }
 
+func init(){
+	logrus.SetLevel(logrus.DebugLevel)
+}
+
 // NewDBPool 创建数据库连接池
 func NewDBPool(config *db.Config) {
 	DBPool = db.GetPool(config)

@@ -6,14 +6,14 @@ alipay: # 支付宝 服务商，单商户统一用同一套
   serviceid: xxxxxx # 服务商户id
   notify: http:// # 异步通知回调地址
   apps:   # 多个应用收款时请配置apps，默认收款app为第一层的，如果未设置取apps里第一个可用的为默认收款app
-    - 
+    -
       use: true # 是否开启alipay
       appid: xxxxx # 支付宝appid
       certpath: cert_prod/alipay # alipay 证书存放目录
       url: https://openapi.alipay.com/gateway.do # alipay请求地址
       serviceid: xxxxxx # 服务商户id
       notify: http:// # 异步通知回调地址
-    - 
+    -
       use: true # 是否开启alipay
       appid: xxxxx # 支付宝appid
       certpath: cert_prod/alipay # alipay 证书存放目录
@@ -48,8 +48,8 @@ wxpay_single: # 微信支付 单商户模式
     - abcefgh
   certpath: cert_prod/wxpay_app  # 微信支付 证书存放目录
   url: https://api.mch.weixin.qq.com  # 微信支付请求地址
-  secret: LsfTChPd3REAPxxxxxxxDc  # 
-  apps: 
+  secret: LsfTChPd3REAPxxxxxxxDc  #
+  apps:
     -
       use: true
       serviceid: xxxxxxx  # 商户ID
@@ -58,7 +58,7 @@ wxpay_single: # 微信支付 单商户模式
       url: https://api.mch.weixin.qq.com  # 微信支付请求地址
       secret: LsfTChPd3REAPxxxxxxxDc  # 微信支付密钥
       notify: http:// # 异步通知回调地址 微信的请注意不要使用https回调
-    - 
+    -
       use: true
       serviceid: xxxxx  # 商户ID
       appid: wxfa9xxxxxxxx  # appid 单一app设置方式
