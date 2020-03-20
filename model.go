@@ -4,11 +4,10 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
+	"github.com/spf13/viper"
+	"strings"
 
 	"github.com/panjjo/ppp/db"
-
-	"gopkg.in/yaml.v1"
 )
 
 // Status 类型int
@@ -123,17 +122,20 @@ type SysConfig struct {
 
 // LoadConfig 加载配置文件
 func LoadConfig(name string) *Configs {
-	b, err := ioutil.ReadFile(name)
+	viper.SetConfigFile(name)
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	err := viper.ReadInConfig()
 	if err != nil {
-		logrus.Fatalf("load config file error,file:%s,err:%v", name, err)
+		logrus.Fatal("init config error:", err)
 	}
 	config := &Configs{}
-	if err = yaml.Unmarshal(b, &config); err != nil {
-		logrus.Fatalf("load config file error,file:%s,err:%v", name, err)
+	err = viper.Unmarshal(&config)
+	if err != nil {
+		logrus.Fatal("init config unmarshal error:", err)
 	}
 	return config
 }
-
 
 type config struct {
 	appid     string

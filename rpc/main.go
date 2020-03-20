@@ -20,6 +20,8 @@ func main() {
 	logrus.Debugln("config path:", *configPath)
 	config = ppp.LoadConfig(*configPath)
 	ppp.NewLogger(config.Sys.LogLevel)
+	logrus.Debugf("config.sys:%+v",config.Sys)
+	logrus.Debugf("config.db:%+v",config.DB)
 	ppp.NewDBPool(&config.DB)
 	// 初始化 alipay 和 默认收款账号
 	if config.AliPay.Use {
