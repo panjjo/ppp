@@ -4,11 +4,7 @@
 ---
 ### 类型
 工具类
-### 所属项目
-任何项目
-### 项目组人员
-#### 负责人： 潘金杰
-#### 成员： 无
+
 ### 主要功能
 
 - 集成支付宝微信支付
@@ -35,9 +31,7 @@ cert
  - cp config.tmp.yml config.yml
  - go run rpc/*.go --path=configfilepath
 
-### hprose
-使用hprose的rpc模式启动
-hprose 项目地址 github.com/hprose/hprose-golang
+### GRPC
 
 ### Config
 参考config.tmp.yml
