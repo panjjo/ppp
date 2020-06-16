@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/hprose/hprose-golang/rpc"
 	"github.com/panjjo/ppp"
 )
 
-func main() {
+func main1() {
 	client := rpc.NewTCPClient("tcp://127.0.0.1:1233")
 	service := &ppp.Services{}
 	client.UseService(&service)
-	fmt.Println(service.WXPayTradeInfo(&ppp.Trade{MchID:"1490825832",OutTradeID:"201910081734490"},true,"wxfa9c9911c1beae14"))
+	fmt.Println(service.WXPayTradeInfo(&ppp.Trade{MchID: "1490825832", OutTradeID: "201910081734490"}, true, "wxfa9c9911c1beae14"))
 	// fmt.Println(service.WXPayBarPay(&ppp.BarPay{
 	// 	OutTradeID:"201901311100450",
 	// 	TradeName:"abc",

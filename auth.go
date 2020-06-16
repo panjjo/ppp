@@ -1,5 +1,9 @@
 package ppp
 
+import (
+	"github.com/panjjo/ppp/db"
+)
+
 const (
 	authTable = "auths"
 
@@ -27,35 +31,26 @@ type Auth struct {
 
 // 获取授权
 func getToken(mchid, appid string) *Auth {
-	session := DBPool.Get()
-	defer session.Close()
 	auth := &Auth{}
-	res := session.FindOne(authTable, map[string]interface{}{"mchid": mchid, "appid": appid}, auth)
-	if res != nil {
-		auth = res.(*Auth)
-	}
+	DBClient.Get(authTable, db.M{"mchid": mchid, "appid": appid}, auth)
 	return auth
 }
 
 // 刷新授权
 func updateToken(mchid, appid string, update interface{}) error {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.Update(authTable, map[string]interface{}{"mchid": mchid, "appid": appid}, update)
+	return DBClient.Update(authTable, db.M{"mchid": mchid, "appid": appid}, db.M{"$set": update})
 }
 
 // 保存授权
 func saveToken(auth *Auth) error {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.Save(authTable, auth)
+	return DBClient.Insert(authTable, auth)
 }
 
 // 通过userid 或者 mchid 获取授权信息
-func token(userid, mchid,t, appid string) *Auth {
+func token(userid, mchid, t, appid string) *Auth {
 	auth := &Auth{}
 	if mchid == "" {
-		user := getUser(userid,t)
+		user := getUser(userid, t)
 		if user.Status != UserSucc {
 			return auth
 		}

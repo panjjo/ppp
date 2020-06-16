@@ -26,7 +26,5 @@ type Refund struct {
 }
 
 func saveRefund(refund *Refund) error {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.Save(refundTable, refund)
+	return DBClient.Insert(refundTable, refund)
 }

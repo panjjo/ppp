@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/panjjo/ppp"
+	"github.com/sirupsen/logrus"
 )
 
 var alipay *ppp.AliPay
@@ -17,22 +18,22 @@ var config *ppp.Configs
 
 func main() {
 	flag.Parse()
-	ppp.Log.DEBUG.Println("config path", *configPath)
+	logrus.Infoln("config path", *configPath)
 	config = ppp.LoadConfig(*configPath)
 	ppp.NewLogger(config.Sys.LogLevel)
-	ppp.NewDBPool(&config.DB)
+	ppp.NewDB(config.DB)
 	// 初始化 alipay 和 默认收款账号
 	if config.AliPay.Use {
 		alipay = ppp.NewAliPay(config.AliPay)
-		ppp.Log.DEBUG.Println("alipay init succ")
+		logrus.Infoln("alipay init succ")
 	}
 	if config.WXPay.Use {
 		wxpay = ppp.NewWXPay(config.WXPay)
-		ppp.Log.DEBUG.Println("wxpay init succ")
+		logrus.Infoln("wxpay init succ")
 	}
 	if config.WXSingle.Use {
 		wxpaySingle = ppp.NewWXPaySingle(config.WXSingle)
-		ppp.Log.DEBUG.Println("wxpaySingle init succ")
+		logrus.Infoln("wxpaySingle init succ")
 	}
 	hproseRPC()
 }

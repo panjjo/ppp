@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -31,12 +33,12 @@ func aliConfig(config ConfigSingle) (a config) {
 	if config.AppID != "" {
 		a.appid = config.AppID
 	} else {
-		Log.ERROR.Panicf("not found alipay appid")
+		logrus.Fatalln("not found alipay appid")
 	}
 	if config.URL != "" {
 		a.url = config.URL
 	} else {
-		Log.ERROR.Panicf("not found alipay apiurl")
+		logrus.Fatalln("not found alipay apiurl")
 	}
 	a.notify = config.Notify
 
@@ -46,13 +48,13 @@ func aliConfig(config ConfigSingle) (a config) {
 	// 加载应用私钥证书
 	private, err := LoadPrivateKeyFromFile(filepath.Join(config.CertPath, "private.key"))
 	if err != nil {
-		Log.ERROR.Panicf("load alipay privateCert fail,file:%s,err:%s", config.CertPath, err)
+		logrus.Fatalf("load alipay privateCert fail,file:%s,err:%s", config.CertPath, err)
 	}
 	a.private = private
 	// 加载支付宝公钥
 	public, err := LoadPublicKeyFromFile(filepath.Join(config.CertPath, "public.key"))
 	if err != nil {
-		Log.ERROR.Panicf("load alipay publicCert fail,file:%s,err:%s", config.CertPath, err)
+		logrus.Fatalf("load alipay publicCert fail,file:%s,err:%s", config.CertPath, err)
 	}
 	a.public = public
 	return a
@@ -75,7 +77,7 @@ func NewAliPay(cfgs Config) *AliPay {
 			alipay.cfgs[cfg.AppID] = c
 		}
 	}
-	Log.DEBUG.Printf("alipay cfgs:%+v,def:%+v", alipay.cfgs, alipay.def)
+	logrus.Debugf("alipay cfgs:%+v,def:%+v", alipay.cfgs, alipay.def)
 	return alipay
 }
 
@@ -740,7 +742,7 @@ func (A *AliPay) request(url string, relKey string) (interface{}, Status, error)
 		return nil, netConnErr, err
 	}
 	result := map[string]interface{}{}
-	Log.DEBUG.Printf("alipayresult:%+v", string(body))
+	logrus.Debugf("alipayresult:%+v", string(body))
 	if err := jsonDecode(body, &result); err != nil {
 		return nil, nextStop, err
 	}

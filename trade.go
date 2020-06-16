@@ -1,5 +1,7 @@
 package ppp
 
+import "github.com/panjjo/ppp/db"
+
 const (
 	tradeTable = "trades"
 
@@ -24,7 +26,7 @@ const (
 	WEBPAY TradeType = "WEB"
 	// JSPAY 公众号支付
 	JSPAY TradeType = "JS"
-	// MINIP 小程序支付
+	// MINIPAY 小程序支付
 	MINIPAY TradeType = "MINIP"
 	// CBARPAY 微信扫码支付（顾客扫码）
 	CBARPAY TradeType = "CBAR"
@@ -80,29 +82,15 @@ type TradeScene struct {
 }
 
 func getTrade(q interface{}) *Trade {
-	session := DBPool.Get()
-	defer session.Close()
 	trade := &Trade{}
-	res := session.FindOne(tradeTable, q, trade)
-	if res != nil {
-		trade = res.(*Trade)
-	}
+	DBClient.Get(tradeTable, q, trade)
 	return trade
 }
 
 func saveTrade(trade *Trade) error {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.Save(tradeTable, trade)
+	return DBClient.Insert(tradeTable, trade)
 }
 
 func updateTrade(query, update interface{}) error {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.Update(tradeTable, query, update)
-}
-func upsertTrade(query, update interface{}) (interface{}, error) {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.UpSert(tradeTable, query, update)
+	return DBClient.Update(tradeTable, query, db.M{"$set": update})
 }

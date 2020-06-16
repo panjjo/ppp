@@ -4,8 +4,8 @@ import (
 	"net"
 
 	"github.com/hprose/hprose-golang/rpc"
-	"github.com/panjjo/log4go"
 	"github.com/panjjo/ppp"
+	"github.com/sirupsen/logrus"
 )
 
 func hproseRPC() {
@@ -20,26 +20,25 @@ func hproseRPC() {
 	if config.WXSingle.Use {
 		service.AddInstanceMethods(&WXPaySingleHproseRPC{}, rpc.Options{NameSpace: ppp.WXPAYSINGLE})
 	}
-	service.AddBeforeFilterHandler(logFilter{ppp.Log}.handler)
+	service.AddBeforeFilterHandler(logFilter{}.handler)
 	l, e := net.Listen("tcp", config.Sys.ADDR)
 	if e != nil {
-		ppp.Log.ERROR.Panicf("listen tcp %s error:%v", config.Sys.ADDR, e)
+		logrus.Fatalf("listen tcp %s error:%v", config.Sys.ADDR, e)
 	}
-	ppp.Log.INFO.Println("listen tcp at", config.Sys.ADDR)
+	logrus.Infoln("listen tcp at", config.Sys.ADDR)
 	service.Serve(l)
 }
 
 type logFilter struct {
-	log *log4go.Logger
 }
 
 func (lf logFilter) handler(
 	request []byte,
 	context rpc.Context,
 	next rpc.NextFilterHandler) (response []byte, err error) {
-	lf.log.INFO.Println("request:", string(request))
+	logrus.Debugln("request:", string(request))
 	response, err = next(request, context)
-	lf.log.INFO.Println("response:", string(response))
+	logrus.Debugln("response:", string(response))
 	return
 }
 
@@ -93,53 +92,52 @@ func (A *AliPayHproseRPC) Auth(req string, tag string) (auth *ppp.Auth, e ppp.Er
 }
 
 // MchPay ...
-func (A *AliPayHproseRPC) MchPay(req *ppp.MchPay,tag string) (tid string, e ppp.Error) {
-	return alipay.MchPay(ppp.NewContextWithCfg(ppp.ALIPAY, tag),req)
+func (A *AliPayHproseRPC) MchPay(req *ppp.MchPay, tag string) (tid string, e ppp.Error) {
+	return alipay.MchPay(ppp.NewContextWithCfg(ppp.ALIPAY, tag), req)
 }
-
 
 // WXPayHproseRPC ...
 type WXPayHproseRPC struct {
 }
 
 // PayParams ...
-func (A *WXPayHproseRPC) PayParams(req *ppp.TradeParams,tag string) (data *ppp.PayParams, e ppp.Error) {
-	return wxpay.PayParams(ppp.NewContextWithCfg(ppp.WXPAY, tag),req)
+func (A *WXPayHproseRPC) PayParams(req *ppp.TradeParams, tag string) (data *ppp.PayParams, e ppp.Error) {
+	return wxpay.PayParams(ppp.NewContextWithCfg(ppp.WXPAY, tag), req)
 }
 
 // TradeInfo ...
-func (A *WXPayHproseRPC) TradeInfo(req *ppp.Trade, sync bool,tag string) (trade *ppp.Trade, e ppp.Error) {
-	return wxpay.TradeInfo(ppp.NewContextWithCfg(ppp.WXPAY, tag),req, sync)
+func (A *WXPayHproseRPC) TradeInfo(req *ppp.Trade, sync bool, tag string) (trade *ppp.Trade, e ppp.Error) {
+	return wxpay.TradeInfo(ppp.NewContextWithCfg(ppp.WXPAY, tag), req, sync)
 }
 
 // BarPay ...
-func (A *WXPayHproseRPC) BarPay(req *ppp.BarPay,tag string) (trade *ppp.Trade, e ppp.Error) {
-	return wxpay.BarPay(ppp.NewContextWithCfg(ppp.WXPAY, tag),req)
+func (A *WXPayHproseRPC) BarPay(req *ppp.BarPay, tag string) (trade *ppp.Trade, e ppp.Error) {
+	return wxpay.BarPay(ppp.NewContextWithCfg(ppp.WXPAY, tag), req)
 }
 
 // Refund ...
-func (A *WXPayHproseRPC) Refund(req *ppp.Refund,tag string) (refund *ppp.Refund, e ppp.Error) {
-	return wxpay.Refund(ppp.NewContextWithCfg(ppp.WXPAY, tag),req)
+func (A *WXPayHproseRPC) Refund(req *ppp.Refund, tag string) (refund *ppp.Refund, e ppp.Error) {
+	return wxpay.Refund(ppp.NewContextWithCfg(ppp.WXPAY, tag), req)
 }
 
 // Cancel ...
-func (A *WXPayHproseRPC) Cancel(req *ppp.Trade,tag string) (e ppp.Error) {
-	return wxpay.Cancel(ppp.NewContextWithCfg(ppp.WXPAY, tag),req)
+func (A *WXPayHproseRPC) Cancel(req *ppp.Trade, tag string) (e ppp.Error) {
+	return wxpay.Cancel(ppp.NewContextWithCfg(ppp.WXPAY, tag), req)
 }
 
 // AuthSigned ...
-func (A *WXPayHproseRPC) AuthSigned(req *ppp.Auth,tag string) (auth *ppp.Auth, e ppp.Error) {
-	return wxpay.AuthSigned(ppp.NewContextWithCfg(ppp.WXPAY, tag),req)
+func (A *WXPayHproseRPC) AuthSigned(req *ppp.Auth, tag string) (auth *ppp.Auth, e ppp.Error) {
+	return wxpay.AuthSigned(ppp.NewContextWithCfg(ppp.WXPAY, tag), req)
 }
 
 // BindUser ...
-func (A *WXPayHproseRPC) BindUser(req *ppp.User,tag string) (user *ppp.User, e ppp.Error) {
-	return wxpay.BindUser(ppp.NewContextWithCfg(ppp.WXPAY, tag),req)
+func (A *WXPayHproseRPC) BindUser(req *ppp.User, tag string) (user *ppp.User, e ppp.Error) {
+	return wxpay.BindUser(ppp.NewContextWithCfg(ppp.WXPAY, tag), req)
 }
 
 // UnBindUser ...
-func (A *WXPayHproseRPC) UnBindUser(req *ppp.User,tag string) (user *ppp.User, e ppp.Error) {
-	return wxpay.UnBindUser(ppp.NewContextWithCfg(ppp.WXPAY, tag),req)
+func (A *WXPayHproseRPC) UnBindUser(req *ppp.User, tag string) (user *ppp.User, e ppp.Error) {
+	return wxpay.UnBindUser(ppp.NewContextWithCfg(ppp.WXPAY, tag), req)
 }
 
 // WXPaySingleHproseRPC ...
@@ -147,31 +145,31 @@ type WXPaySingleHproseRPC struct {
 }
 
 // PayParams ...
-func (A *WXPaySingleHproseRPC) PayParams(req *ppp.TradeParams,tag string) (data *ppp.PayParams, e ppp.Error) {
-	return wxpaySingle.PayParams(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag),req)
+func (A *WXPaySingleHproseRPC) PayParams(req *ppp.TradeParams, tag string) (data *ppp.PayParams, e ppp.Error) {
+	return wxpaySingle.PayParams(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag), req)
 }
 
 // TradeInfo ...
-func (A *WXPaySingleHproseRPC) TradeInfo(req *ppp.Trade, sync bool,tag string) (trade *ppp.Trade, e ppp.Error) {
-	return wxpaySingle.TradeInfo(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag),req, sync)
+func (A *WXPaySingleHproseRPC) TradeInfo(req *ppp.Trade, sync bool, tag string) (trade *ppp.Trade, e ppp.Error) {
+	return wxpaySingle.TradeInfo(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag), req, sync)
 }
 
 // BarPay ...
-func (A *WXPaySingleHproseRPC) BarPay(req *ppp.BarPay,tag string) (trade *ppp.Trade, e ppp.Error) {
-	return wxpaySingle.BarPay(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag),req)
+func (A *WXPaySingleHproseRPC) BarPay(req *ppp.BarPay, tag string) (trade *ppp.Trade, e ppp.Error) {
+	return wxpaySingle.BarPay(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag), req)
 }
 
 // Refund ...
-func (A *WXPaySingleHproseRPC) Refund(req *ppp.Refund,tag string) (refund *ppp.Refund, e ppp.Error) {
-	return wxpaySingle.Refund(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag),req)
+func (A *WXPaySingleHproseRPC) Refund(req *ppp.Refund, tag string) (refund *ppp.Refund, e ppp.Error) {
+	return wxpaySingle.Refund(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag), req)
 }
 
 // Cancel ...
-func (A *WXPaySingleHproseRPC) Cancel(req *ppp.Trade,tag string) (e ppp.Error) {
-	return wxpaySingle.Cancel(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag),req)
+func (A *WXPaySingleHproseRPC) Cancel(req *ppp.Trade, tag string) (e ppp.Error) {
+	return wxpaySingle.Cancel(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag), req)
 }
 
 // MchPay ...
-func (A *WXPaySingleHproseRPC) MchPay(req *ppp.MchPay,tag string) (tid string, e ppp.Error) {
-	return wxpaySingle.MchPay(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag),req)
+func (A *WXPaySingleHproseRPC) MchPay(req *ppp.MchPay, tag string) (tid string, e ppp.Error) {
+	return wxpaySingle.MchPay(ppp.NewContextWithCfg(ppp.WXPAYSINGLE, tag), req)
 }

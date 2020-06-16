@@ -3,8 +3,10 @@ package ppp
 import (
 	"crypto/rsa"
 	"crypto/tls"
-	"github.com/hprose/hprose-golang/rpc"
 	"time"
+
+	"github.com/hprose/hprose-golang/rpc"
+	"github.com/sirupsen/logrus"
 )
 
 type Context struct {
@@ -28,7 +30,7 @@ func NewContextWithCfg(ty, tg string) *Context {
 	return ctx
 }
 func (c *Context) SetCfg(ty, tg string) {
-	Log.DEBUG.Println("req set cfg ,ty:", ty, "tg:", tg)
+	logrus.Debugln("req set cfg ,ty:", ty, "tg:", tg)
 	c.cfg = &config{}
 	switch ty {
 	case ALIPAY:
@@ -56,7 +58,7 @@ func (c *Context) SetCfg(ty, tg string) {
 			}
 		}
 	}
-	Log.DEBUG.Printf("end cfg:%+v", c.cfg)
+	logrus.Debugln("end cfg:%+v", c.cfg)
 }
 func (c *Context) tlsConfig() *tls.Config {
 	return c.cfg.tlsConfig
@@ -116,7 +118,7 @@ func (c *Context) mchid() string {
 	return ""
 }
 func (c *Context) getAuth(userid, mchid string) *Auth {
-	Log.DEBUG.Println("get auth, userid:", userid, "mchid:", mchid)
+	logrus.Debugln("get auth, userid:", userid, "mchid:", mchid)
 	if c.auth != nil {
 		return c.auth
 	}
@@ -137,7 +139,7 @@ func (c *Context) getAuth(userid, mchid string) *Auth {
 		c.uid = userid
 		c.auth = token(userid, mchid, c.Type, c.appid())
 	}
-	Log.DEBUG.Printf("end auth: %+v", c.auth)
+	logrus.Debugln("end auth: %+v", c.auth)
 	return c.auth
 }
 

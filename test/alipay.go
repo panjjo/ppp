@@ -13,13 +13,13 @@ func main() {
 
 	config := ppp.LoadConfig("/Users/panjjo/work/go/src/ppp/config.yml")
 	ppp.NewLogger(config.Sys.LogLevel)
-	ppp.NewDBPool(&config.DB)
+	ppp.NewDB(config.DB)
 
 	if !config.AliPay.Use {
 		return
 	}
 	alipay = ppp.NewAliPay(config.AliPay)
-	ctx = ppp.NewContextWithCfg(ppp.ALIPAY,"2017020405513208")
+	ctx = ppp.NewContextWithCfg(ppp.ALIPAY, "2017020405513208")
 	// auth()
 	authSigner()
 	// barPay()
@@ -40,6 +40,7 @@ func payParams(t ppp.TradeType) {
 	// 	Type:       t,
 	// }))
 }
+
 //
 // func refund() {
 // 	fmt.Println(alipay.Refund(&ppp.Refund{
@@ -77,9 +78,9 @@ func payParams(t ppp.TradeType) {
 // }
 
 func auth() {
-	fmt.Println(alipay.Auth(ctx,"07e95dd9a3d647b1838b0880f33e3X49"))
+	fmt.Println(alipay.Auth(ctx, "07e95dd9a3d647b1838b0880f33e3X49"))
 }
 
 func authSigner() {
-	fmt.Println(alipay.AuthSigned(ctx,&ppp.Auth{MchID: "2088202800798491", Status: 1, Account: "admin@shengyun.org"}))
+	fmt.Println(alipay.AuthSigned(ctx, &ppp.Auth{MchID: "2088202800798491", Status: 1, Account: "admin@shengyun.org"}))
 }

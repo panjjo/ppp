@@ -1,5 +1,7 @@
 package ppp
 
+import "github.com/panjjo/ppp/db"
+
 const (
 	userTable = "users"
 
@@ -23,34 +25,23 @@ type User struct {
 
 // 查询用户
 func getUser(userid, t string) *User {
-	session := DBPool.Get()
-	defer session.Close()
 	user := &User{}
-	res := session.FindOne(userTable, map[string]interface{}{"userid": userid, "from": t}, user)
-	if res != nil {
-		user = res.(*User)
-	}
+	DBClient.Get(userTable, db.M{"userid": userid, "from": t}, user)
 	return user
 }
 
 // 更新用户
 func updateUser(query, update interface{}) error {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.Update(userTable, query, update)
+	return DBClient.Update(userTable, query, db.M{"$set": update})
 }
 
 //
 func updateUserMulti(query, update interface{}) error {
-	session := DBPool.Get()
-	defer session.Close()
-	_, err := session.UpAll(userTable, query, update)
+	_, _, err := DBClient.UpdateMany(userTable, query, db.M{"$set": update})
 	return err
 }
 
 // 保存用户
 func saveUser(user *User) error {
-	session := DBPool.Get()
-	defer session.Close()
-	return session.Save(userTable, user)
+	return DBClient.Insert(userTable, user)
 }

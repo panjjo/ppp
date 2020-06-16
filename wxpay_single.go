@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -33,7 +34,7 @@ func wxConfig(config ConfigSingle) (wx config) {
 		wx.appid = config.AppID
 	} else {
 		if len(config.AppIDS) == 0 {
-			Log.ERROR.Panicf("not found wxpay appid")
+			logrus.Fatalln("not found wxpay appid")
 		} else {
 			wx.appid = config.AppIDS[0]
 		}
@@ -41,23 +42,23 @@ func wxConfig(config ConfigSingle) (wx config) {
 	if config.Secret != "" {
 		wx.secret = config.Secret
 	} else {
-		Log.ERROR.Panicf("not found wxpay secret")
+		logrus.Fatalln("not found wxpay secret")
 	}
 	if config.ServiceID != "" {
 		wx.serviceid = config.ServiceID
 	} else {
-		Log.ERROR.Panicf("not found wxpay serviceid")
+		logrus.Fatalln("not found wxpay serviceid")
 	}
 	if config.URL != "" {
 		wx.url = config.URL
 	} else {
-		Log.ERROR.Panicf("not found wxpay apiurl")
+		logrus.Fatalln("not found wxpay apiurl")
 	}
 	wx.notify = config.Notify
 	// 加载证书
 	cert, err := LoadCertFromP12(filepath.Join(config.CertPath, "cert.p12"), wx.serviceid)
 	if err != nil {
-		Log.ERROR.Panicf("oad wxpay cert fail,file:%s,err:%v", config.CertPath, err)
+		logrus.Fatalf("load wxpay cert fail,file:%s,err:%v", config.CertPath, err)
 	} else {
 		wx.tlsConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -88,7 +89,7 @@ func NewWXPaySingle(cfgs Config) *WXPaySingle {
 			wxpaySingle.cfgs[appid] = c
 		}
 	}
-	Log.DEBUG.Printf("wxpay single cfgs:%+v,def:%+v", wxpaySingle.cfgs, wxpaySingle.def)
+	logrus.Debugf("wxpay single cfgs:%+v,def:%+v", wxpaySingle.cfgs, wxpaySingle.def)
 	return wxpaySingle
 }
 
@@ -817,7 +818,7 @@ func (WS *WXPaySingle) PayParams(ctx *Context, req *TradeParams) (data *PayParam
 		}
 	}
 	info, err := WS.Request(rq)
-	Log.DEBUG.Printf("%+v,%+v", info, err)
+	logrus.Debugf("%+v,%+v", info, err)
 	if err != nil {
 		e.Msg = err.Error()
 		if v, ok := wxErrMap[err.Error()]; ok {
@@ -928,14 +929,14 @@ func (WS *WXPaySingle) request(url string, data []byte, tls bool, ctx *Context) 
 	} else {
 		body, err = postRequest(url, "text/xml", bytes.NewBuffer(data))
 	}
-	Log.DEBUG.Printf("url:%s,data:%s,tls:%v,err:%v", url, string(data), tls, err)
+	logrus.Debugf("url:%s,data:%s,tls:%v,err:%v", url, string(data), tls, err)
 	if err != nil {
 		// 网络发起请求失败
 		// 需重试
 		return nil, netConnErr, err
 	}
 	result := wxResult{}
-	Log.DEBUG.Printf("WXPay request url:%s,body:%s", url, string(body))
+	logrus.Debugf("WXPay request url:%s,body:%s", url, string(body))
 	if err := xml.Unmarshal(body, &result); err != nil {
 		return nil, nextStop, err
 	}
