@@ -352,7 +352,7 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 			updateTrade(map[string]interface{}{"id": trade.ID}, result)
 		}
 	}
-	if needCancel {
+	if needCancel && e.Code != PayErrPayed {
 		// 取消订单
 		// 新调接口重置时间
 		ctx.t = getNowSec()

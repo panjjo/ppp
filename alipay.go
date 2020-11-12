@@ -336,8 +336,8 @@ func (A *AliPay) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error) {
 			updateTrade(map[string]interface{}{"id": trade.ID}, result)
 		}
 	}
-	if needCancel {
-		// 取消订单
+	if needCancel && e.Code != PayErrPayed {
+		// 取消订单,如果是重复支付，表示已有订单支付成功，无需退回
 		ctx.t = getNowSec()
 		A.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
 	}
