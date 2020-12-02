@@ -355,8 +355,31 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *BarPay) (trade *Trade, e Error)
 	if needCancel && e.Code != PayErrPayed {
 		// 取消订单
 		// 新调接口重置时间
-		ctx.t = getNowSec()
-		WS.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
+
+		go func() {
+			ctx.t = getNowSec()
+			re := WS.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
+			if re.Code == Succ {
+				return
+			}
+			for {
+				trade, e = WS.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
+				if e.Code != Succ {
+					return
+				}
+				if trade.Status == TradeStatusSucc {
+					// 支付成功，取消支付
+					WS.Refund(ctx, &Refund{SourceID: trade.OutTradeID, OutRefundID: randomTimeString(), Amount: trade.Amount})
+					return
+				} else if trade.Status == TradeStatusPaying || trade.Status == TradeStatusWaitPay {
+					// 等待支付和支付中的继续请求取消
+					e = WS.Cancel(ctx, &Trade{OutTradeID: req.OutTradeID})
+					if e.Code == Succ {
+						return
+					}
+				}
+			}
+		}()
 	}
 	return
 }
@@ -418,6 +441,7 @@ func (WS *WXPaySingle) Refund(ctx *Context, req *Refund) (refund *Refund, e Erro
 	// 订单存在多次退款情况
 	if trade.Status != TradeStatusSucc && trade.Status != TradeStatusRefund {
 		e.Code = TradeErrStatus
+		e.Msg = "订单状态错误，无法退款"
 		return
 	}
 	params := wxRefundRequest{
@@ -509,6 +533,15 @@ type wxCancelRequest struct {
 // 服务商模式请调用 WXPay.Cancel
 func (WS *WXPaySingle) Cancel(ctx *Context, req *Trade) (e Error) {
 	trade, e := WS.TradeInfo(ctx, &Trade{OutTradeID: req.OutTradeID}, true)
+	if e.Code != Succ {
+		return e
+	}
+	// 订单状态不是等待支付和付款中的无法取消
+	if trade.Status != TradeStatusWaitPay && trade.Status != TradeStatusPaying {
+		e.Code = TradeErrStatus
+		e.Msg = "订单状态错误，无法撤销"
+		return
+	}
 	params := wxCancelRequest{
 		AppID:      ctx.appid(),
 		MchID:      ctx.serviceid(),
@@ -977,6 +1010,7 @@ var wxErrMap = map[string]int{
 	"AUTH_CODE_INVALID": PayErrCode,
 	"ORDERNOTEXIST":     TradeErrNotFound,
 	"REVERSE_EXPIRE":    RefundErrExpire,
+	"USERPAYING":        TradeErrPaying,
 }
 var wxTradeStatusMap = map[string]Status{
 	"SUCCESS":    TradeStatusSucc,
