@@ -5,16 +5,16 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
-	proto "github.com/panjjo/ppp/proto"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
 
+	proto "github.com/panjjo/ppp/proto"
+	"github.com/sirupsen/logrus"
+
 	"gopkg.in/mgo.v2/bson"
 )
-
 
 var wxpaySingle *WXPaySingle
 
@@ -353,8 +353,30 @@ func (WS *WXPaySingle) BarPay(ctx *Context, req *proto.Barpay) (trade *proto.Tra
 	if needCancel {
 		// 取消订单
 		// 新调接口重置时间
-		ctx.t = getNowSec()
-		WS.Cancel(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
+		go func() {
+			ctx.t = getNowSec()
+			trade, e = WS.Cancel(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
+			if e.Code == Succ {
+				return
+			}
+			for {
+				trade, e = WS.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
+				if e.Code != Succ {
+					return
+				}
+				if trade.Status == proto.Tradestatus_succ {
+					// 支付成功，取消支付
+					WS.Refund(ctx, &proto.Refund{SourceID: trade.OutTradeID, OutRefundID: randomTimeString(), Amount: trade.Amount})
+					return
+				} else if trade.Status == proto.Tradestatus_paying || trade.Status == proto.Tradestatus_waitepay {
+					// 等待支付和支付中的继续请求取消
+					trade, e = WS.Cancel(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
+					if e.Code == Succ {
+						return
+					}
+				}
+			}
+		}()
 	}
 	return
 }
@@ -416,6 +438,7 @@ func (WS *WXPaySingle) Refund(ctx *Context, req *proto.Refund) (refund *proto.Re
 	// 订单存在多次退款情况
 	if trade.Status != proto.Tradestatus_succ && trade.Status != proto.Tradestatus_refunded {
 		e.Code = TradeErrStatus
+		e.Msg = "订单状态错误，无法退款"
 		return
 	}
 	params := wxRefundRequest{
@@ -505,8 +528,19 @@ type wxCancelRequest struct {
 // Cancel 撤销订单
 // 单商户模式调用
 // 服务商模式请调用 WXPay.Cancel
-func (WS *WXPaySingle) Cancel(ctx *Context, req *proto.Trade) (trade *proto.Trade,e Error) {
+func (WS *WXPaySingle) Cancel(ctx *Context, req *proto.Trade) (trade *proto.Trade, e Error) {
 	trade, e = WS.TradeInfo(ctx, &proto.Trade{OutTradeID: req.OutTradeID})
+
+	if e.Code != Succ {
+		return trade, e
+	}
+	// 订单状态不是等待支付和付款中的无法取消
+	if trade.Status != proto.Tradestatus_waitepay && trade.Status != proto.Tradestatus_paying {
+		e.Code = TradeErrStatus
+		e.Msg = "订单状态错误，无法撤销"
+		return
+	}
+
 	params := wxCancelRequest{
 		AppID:      ctx.appid(),
 		MchID:      ctx.serviceid(),
@@ -551,7 +585,7 @@ func (WS *WXPaySingle) Cancel(ctx *Context, req *proto.Trade) (trade *proto.Trad
 			updateTrade(map[string]string{"id": trade.ID}, trade)
 		}
 	}
-	return trade,e
+	return trade, e
 }
 
 // wxTradeInfoRequest 微信支付 获取订单详情接口请求参数结构
@@ -967,6 +1001,7 @@ var wxErrMap = map[string]int32{
 	"AUTH_CODE_INVALID": PayErrCode,
 	"ORDERNOTEXIST":     TradeErrNotFound,
 	"REVERSE_EXPIRE":    RefundErrExpire,
+	"USERPAYING":        TradeErrPaying,
 }
 var wxTradeStatusMap = map[string]proto.Tradestatus{
 	"SUCCESS":    proto.Tradestatus_succ,

@@ -3,9 +3,10 @@ package ppp
 import (
 	"crypto/rsa"
 	"crypto/tls"
+	"strings"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"strings"
 
 	"github.com/panjjo/ppp/db"
 )
@@ -49,6 +50,8 @@ const (
 	TradeErrNotFound = 3001
 	// TradeErrStatus 交易状态错误
 	TradeErrStatus = 3002
+	// TradeErrPaying 订单正在支付中不能进行其他操作（撤销和退款）
+	TradeErrPaying = 3003
 
 	// RefundErr 退款错误
 	RefundErr = 4000
@@ -96,6 +99,8 @@ type Configs struct {
 
 	Sys SysConfig `yaml:"sys"`
 }
+
+// Config Config
 type Config struct {
 	ConfigSingle `yaml:"default" mapstructure:"default"`
 	Apps         []ConfigSingle `yaml:"apps" mapstructure:"apps"` // 多个app
