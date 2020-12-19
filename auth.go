@@ -58,3 +58,12 @@ func token(userid, mchid, t, appid string) *Auth {
 	}
 	return getToken(mchid, appid)
 }
+
+// AccessToken 个人授权返回token
+type AccessToken struct {
+	UserID      string
+	AccessToken string
+	ExpiresIN   string
+	ReToken     string
+	ReExpiresIn string
+}

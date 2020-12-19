@@ -81,6 +81,69 @@ func NewAliPay(cfgs Config) *AliPay {
 	return alipay
 }
 
+// AccessToken 令牌获取授权token
+func (A *AliPay) AccessToken(ctx *Context, code string, retoken string) (token *AccessToken, e Error) {
+	params := map[string]interface{}{}
+	if code == "" && retoken == "" {
+		e.Code = SysErrParams
+		e.Msg = "code retoken 两个必传一个"
+		return
+	}
+	if code != "" && retoken != "" {
+		e.Code = SysErrParams
+		e.Msg = "code retoken 两个必传一个"
+		return
+	}
+	if code != "" {
+		params["grant_type"] = "authorization_code"
+		params["code"] = code
+	}
+	if retoken != "" {
+		params["grant_type"] = "refresh_token"
+		params["refresh_token"] = code
+	}
+	sysParams := A.sysParams(ctx)
+	sysParams["method"] = "alipay.system.oauth.token"
+	sysParams["biz_content"] = string(jsonEncode(params))
+	// 设置子商户数据
+	if ctx.mchid() != ctx.serviceid() {
+		sysParams["app_auth_token"] = ctx.token()
+	}
+	sysParams["sign"] = base64Encode(A.Signer(ctx, sysParams))
+	rq := requestSimple{url: ctx.url(), get: httpBuildQuery(sysParams), relKey: "alipay_system_oauth_token_response", ctx: ctx}
+	rq.fs = func(result interface{}, next Status, err error) (interface{}, error) {
+		switch next {
+		case netConnErr, nextRetry:
+			// 超时，异常立刻重试
+			time.Sleep(1 * time.Second)
+			return A.Request(rq)
+		default:
+			return result, err
+		}
+	}
+	info, err := A.Request(rq)
+	if err != nil {
+		e.Msg = err.Error()
+		if v, ok := aliErrMap[err.Error()]; ok {
+			e.Code = v
+		} else {
+			e.Code = TradeErr
+		}
+	} else {
+		// 成功返回
+		tmpresult := info.(map[string]interface{})
+		// 数据返回后以第三方返回数据为准
+		token = &AccessToken{
+			UserID:      tmpresult["user_id"].(string),
+			AccessToken: tmpresult["access_token"].(string),
+			ExpiresIN:   tmpresult["expires_in"].(string),
+			ReToken:     tmpresult["refresh_token"].(string),
+			ReExpiresIn: tmpresult["re_expires_in"].(string),
+		}
+	}
+	return
+}
+
 // MchPay 企业付款 到 个人支付宝账号
 // 单商户模式调用
 // UserName 不为空则强制检测真实姓名和支付宝账号是否一致
