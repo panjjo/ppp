@@ -96,6 +96,11 @@ func (A *AliPayHproseRPC) MchPay(req *ppp.MchPay, tag string) (tid string, e ppp
 	return alipay.MchPay(ppp.NewContextWithCfg(ppp.ALIPAY, tag), req)
 }
 
+// AccessToken ...
+func (A *AliPayHproseRPC) AccessToken(code, retoken, tag string) (token *ppp.AccessToken, e ppp.Error) {
+	return alipay.AccessToken(ppp.NewContextWithCfg(ppp.ALIPAY, tag), code, retoken)
+}
+
 // WXPayHproseRPC ...
 type WXPayHproseRPC struct {
 }
